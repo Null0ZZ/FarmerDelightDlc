@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "mods": [
+    {
+      "id": "my-mod-arcane",
+      "name": "我的魔法模组",
+      "version": "2.0.0",
+      "summary": "自定义的魔法与冒险模组",
+      "tags": ["魔法", "冒险", "自定义"],
+      "lastUpdated": "2026-01-18",
+      "hero": "https://via.placeholder.com/1200x400?text=My+Mod",
+      "categories": [
+        {
+          "id": "magic-weapons",
+          "name": "魔法武器",
+          "description": "带有魔法属性的武器"
+        },
+        {
+          "id": "spells",
+          "name": "法术",
+          "description": "可学习的各种法术"
+        },
+        {
+          "id": "enchant-materials",
+          "name": "附魔材料",
+          "description": "用于附魔的稀有材料"
+        },
+        {
+          "id": "potions",
+          "name": "药水",
+          "description": "各类增益药水"
+        }
+      ],
+      "items": [
+        {
+          "id": "staff_of_fire",
+          "name": "烈火法杖",
+          "texture": null,
+          "currentCategoryId": "magic-weapons"
+        },
+        {
+          "id": "staff_of_ice",
+          "name": "冰霜法杖",
+          "texture": null,
+          "currentCategoryId": "magic-weapons"
+        },
+        {
+          "id": "spell_fireball",
+          "name": "火球术",
+          "texture": null,
+          "currentCategoryId": "spells"
+        },
+        {
+          "id": "spell_teleport",
+          "name": "传送术",
+          "texture": null,
+          "currentCategoryId": "spells"
+        },
+        {
+          "id": "mana_crystal",
+          "name": "魔力水晶",
+          "texture": null,
+          "currentCategoryId": "enchant-materials"
+        },
+        {
+          "id": "potion_mana",
+          "name": "魔力药水",
+          "texture": null,
+          "currentCategoryId": "potions"
+        }
+      ]
+    },
+    {
+      "id": "my-mod-tech",
+      "name": "我的科技模组",
+      "version": "1.5.0",
+      "summary": "高科技与自动化系统",
+      "tags": ["科技", "自动化"],
+      "lastUpdated": "2026-01-18",
+      "hero": null,
+      "categories": [
+        {
+          "id": "power-gen",
+          "name": "发电机",
+          "description": "各类能源发电设备"
+        },
+        {
+          "id": "processors",
+          "name": "处理器",
+          "description": "数据和物品处理机器"
+        },
+        {
+          "id": "cables",
+          "name": "电缆",
+          "description": "能源和数据传输线"
+        }
+      ],
+      "items": [
+        {
+          "id": "solar_panel",
+          "name": "太阳能板",
+          "texture": null,
+          "currentCategoryId": "power-gen"
+        },
+        {
+          "id": "wind_turbine",
+          "name": "风力涡轮机",
+          "texture": null,
+          "currentCategoryId": "power-gen"
+        },
+        {
+          "id": "smelter",
+          "name": "高速熔炉",
+          "texture": null,
+          "currentCategoryId": "processors"
+        },
+        {
+          "id": "cable_copper",
+          "name": "铜质电缆",
+          "texture": null,
+          "currentCategoryId": "cables"
+        }
+      ]
+    }
+  ]
+}
