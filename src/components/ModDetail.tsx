@@ -6,15 +6,21 @@ type Props = {
   selectedCategoryId?: string;
   onSelectCategory: (categoryId: string) => void;
   onReassignItem: (itemId: string, newCategoryId: string) => void;
+  onAddCategory: (name: string) => void;
+  onDeleteCategory: (categoryId: string) => void;
 };
 
 export const ModDetail = ({
   mod,
   selectedCategoryId,
   onSelectCategory,
-  onReassignItem
+  onReassignItem,
+  onAddCategory,
+  onDeleteCategory
 }: Props) => {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   if (!mod) {
     return (
@@ -44,6 +50,20 @@ export const ModDetail = ({
     }
   };
 
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+      onAddCategory(newCategoryName.trim());
+      setNewCategoryName('');
+      setShowAddCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = (categoryId: string) => {
+    if (confirm('确定要删除此分类吗？该分类下的物品会变为未分类状态。')) {
+      onDeleteCategory(categoryId);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
       <div className="panel glass">
@@ -61,59 +81,145 @@ export const ModDetail = ({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0 }}>
         {/* 顶部：分类列表 */}
-        <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', maxHeight: '180px' }}>
-          <div className="section-title" style={{ fontSize: 13, marginBottom: 8 }}>分类</div>
+        <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', maxHeight: '220px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div className="section-title" style={{ fontSize: 13, margin: 0 }}>分类</div>
+            <button
+              onClick={() => setShowAddCategory(!showAddCategory)}
+              style={{
+                padding: '4px 8px',
+                fontSize: 12,
+                background: 'rgba(124, 242, 156, 0.1)',
+                border: '1px solid var(--accent-strong)',
+                color: 'var(--accent-strong)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {showAddCategory ? '取消' : '➕ 新增'}
+            </button>
+          </div>
+
+          {showAddCategory && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <input
+                type="text"
+                placeholder="分类名称"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddCategory();
+                  if (e.key === 'Escape') setShowAddCategory(false);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '6px 10px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  color: 'var(--text)',
+                  fontSize: 12,
+                  outline: 'none'
+                }}
+              />
+              <button
+                onClick={handleAddCategory}
+                style={{
+                  padding: '6px 12px',
+                  background: 'var(--accent-strong)',
+                  border: 'none',
+                  color: '#000',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                确认
+              </button>
+            </div>
+          )}
+
           <div style={{ flex: 1, overflowY: 'auto', paddingRight: 6 }}>
             <div className="categories-grid">
               {mod.categories.map((cat) => {
                 const count = mod.items.filter((i) => i.currentCategoryId === cat.id).length;
                 return (
-                  <button
-                    key={cat.id}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: 10,
-                      border: cat.id === selectedCategoryId ? '1px solid var(--accent-strong)' : '1px solid var(--border)',
-                      background: cat.id === selectedCategoryId ? 'rgba(124, 242, 156, 0.06)' : 'transparent',
-                      color: 'var(--text)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      textAlign: 'center',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 4,
-                      fontSize: 12,
-                      overflow: 'hidden'
-                    }}
-                    onClick={() => onSelectCategory(cat.id)}
-                    onMouseEnter={(e) => {
-                      if (cat.id !== selectedCategoryId) {
-                        e.currentTarget.style.borderColor = 'var(--accent)';
-                        e.currentTarget.style.background = 'rgba(109, 211, 255, 0.1)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (cat.id !== selectedCategoryId) {
-                        e.currentTarget.style.borderColor = 'var(--border)';
-                        e.currentTarget.style.background = 'transparent';
-                      }
-                    }}
-                    title={cat.name}
-                  >
-                    <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{cat.name}</span>
-                    <span style={{ 
-                      background: 'rgba(109, 211, 255, 0.2)',
-                      padding: '2px 6px',
-                      borderRadius: 4,
-                      fontSize: 11,
-                      minWidth: '24px',
-                      textAlign: 'center'
-                    }}>
-                      {count}
-                    </span>
+                  <div key={cat.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                    <button
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 10,
+                        border: cat.id === selectedCategoryId ? '1px solid var(--accent-strong)' : '1px solid var(--border)',
+                        background: cat.id === selectedCategoryId ? 'rgba(124, 242, 156, 0.06)' : 'transparent',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: 12,
+                        overflow: 'hidden'
+                      }}
+                      onClick={() => onSelectCategory(cat.id)}
+                      onMouseEnter={(e) => {
+                        if (cat.id !== selectedCategoryId) {
+                          e.currentTarget.style.borderColor = 'var(--accent)';
+                          e.currentTarget.style.background = 'rgba(109, 211, 255, 0.1)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (cat.id !== selectedCategoryId) {
+                          e.currentTarget.style.borderColor = 'var(--border)';
+                          e.currentTarget.style.background = 'transparent';
+                        }
+                      }}
+                      title={cat.name}
+                    >
+                      <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{cat.name}</span>
+                      <span style={{ 
+                        background: 'rgba(109, 211, 255, 0.2)',
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                        fontSize: 11,
+                        minWidth: '24px',
+                        textAlign: 'center'
+                      }}>
+                        {count}
+                      </span>
                   </button>
+                  <button
+                    onClick={() => handleDeleteCategory(cat.id)}
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -6,
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      background: '#ff4444',
+                      border: 'none',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: 0,
+                      transition: 'opacity 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                    title="删除分类"
+                  >
+                    ✕
+                  </button>
+                </div>
                 );
               })}
             </div>

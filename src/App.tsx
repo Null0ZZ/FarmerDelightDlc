@@ -80,6 +80,70 @@ function App() {
     }
   };
 
+  const handleAddCategory = (name: string) => {
+    if (!selectedMod) return;
+    setStatus('添加分类中…');
+    try {
+      const categoryId = name.toLowerCase().replace(/\s+/g, '-');
+      // 检查是否已存在
+      if (selectedMod.categories.some(c => c.id === categoryId)) {
+        setStatus('分类已存在');
+        setTimeout(() => setStatus(''), 2000);
+        return;
+      }
+      
+      setMods((prevMods) => {
+        return prevMods.map((mod) => {
+          if (mod.id !== selectedMod.id) return mod;
+          return {
+            ...mod,
+            categories: [...mod.categories, { id: categoryId, name, description: '' }]
+          };
+        });
+      });
+      
+      setStatus('分类已添加');
+      setTimeout(() => setStatus(''), 2000);
+    } catch (err) {
+      console.error(err);
+      setStatus('添加失败');
+    }
+  };
+
+  const handleDeleteCategory = (categoryId: string) => {
+    if (!selectedMod) return;
+    setStatus('删除分类中…');
+    try {
+      setMods((prevMods) => {
+        return prevMods.map((mod) => {
+          if (mod.id !== selectedMod.id) return mod;
+          
+          return {
+            ...mod,
+            categories: mod.categories.filter(c => c.id !== categoryId),
+            // 将该分类下的物品设为未分类状态
+            items: mod.items.map(item => 
+              item.currentCategoryId === categoryId 
+                ? { ...item, currentCategoryId: '' }
+                : item
+            )
+          };
+        });
+      });
+      
+      // 清除该分类的选中状态
+      if (selectedCategoryId === categoryId) {
+        setSelectedCategoryId('');
+      }
+      
+      setStatus('分类已删除');
+      setTimeout(() => setStatus(''), 2000);
+    } catch (err) {
+      console.error(err);
+      setStatus('删除失败');
+    }
+  };
+
   const filteredContrib = useMemo(() => {
     if (!selectedModId) return contributions;
     return contributions.filter((c) => c.modId === selectedModId).slice(0, 10);
@@ -115,6 +179,8 @@ function App() {
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={setSelectedCategoryId}
           onReassignItem={handleReassignItem}
+          onAddCategory={handleAddCategory}
+          onDeleteCategory={handleDeleteCategory}
         />
       </div>
 
