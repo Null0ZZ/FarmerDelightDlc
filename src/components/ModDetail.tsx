@@ -8,6 +8,7 @@ type Props = {
   onReassignItem: (itemId: string, newCategoryId: string) => void;
   onAddCategory: (name: string) => void;
   onDeleteCategory: (categoryId: string) => void;
+  onReorderItems: (categoryId: string, itemIds: string[]) => void;
 };
 
 export const ModDetail = ({
@@ -16,11 +17,14 @@ export const ModDetail = ({
   onSelectCategory,
   onReassignItem,
   onAddCategory,
-  onDeleteCategory
+  onDeleteCategory,
+  onReorderItems
 }: Props) => {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
 
   if (!mod) {
     return (
@@ -62,6 +66,37 @@ export const ModDetail = ({
     if (confirm('确定要删除此分类吗？该分类下的物品会变为未分类状态。')) {
       onDeleteCategory(categoryId);
     }
+  };
+
+  const handleDragStart = (itemId: string) => {
+    setDraggedItemId(itemId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, itemId: string) => {
+    e.preventDefault();
+    setDragOverItemId(itemId);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetItemId: string) => {
+    e.preventDefault();
+    if (draggedItemId && draggedItemId !== targetItemId && selectedCategoryId) {
+      const newOrder = [...itemsInCategory];
+      const draggedIndex = newOrder.findIndex(item => item.id === draggedItemId);
+      const targetIndex = newOrder.findIndex(item => item.id === targetItemId);
+      
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const [draggedItem] = newOrder.splice(draggedIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedItem);
+        onReorderItems(selectedCategoryId, newOrder.map(item => item.id));
+      }
+    }
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItemId(null);
+    setDragOverItemId(null);
   };
 
   return (
@@ -235,33 +270,42 @@ export const ModDetail = ({
           {selectedCategoryId && itemsInCategory.length > 0 ? (
             <div style={{ flex: 1, overflowY: 'auto', paddingRight: 6 }}>
               <div className="items-grid">
-                {itemsInCategory.map((item) => (
+                {itemsInCategory.map((item, index) => (
                 <div
-                  key={item.id}
+                  key={`${selectedCategoryId}-${item.id}-${index}`}
+                  draggable
+                  onDragStart={() => handleDragStart(item.id)}
+                  onDragOver={(e) => handleDragOver(e, item.id)}
+                  onDrop={(e) => handleDrop(e, item.id)}
+                  onDragEnd={handleDragEnd}
                   style={{
                     aspectRatio: '1',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid var(--border)',
+                    background: dragOverItemId === item.id ? 'rgba(124, 242, 156, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    border: draggedItemId === item.id ? '2px dashed var(--accent-strong)' : '1px solid var(--border)',
                     borderRadius: 12,
-                    cursor: 'pointer',
+                    cursor: draggedItemId ? 'grabbing' : 'grab',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 32,
                     transition: 'all 0.15s ease',
-                    opacity: 0.8,
+                    opacity: draggedItemId === item.id ? 0.5 : 0.8,
                     overflow: 'hidden'
                   }}
                   onClick={() => handleItemClick(item.id)}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--accent)';
-                    e.currentTarget.style.opacity = '1';
-                    e.currentTarget.style.transform = 'scale(1.05)';
+                    if (!draggedItemId) {
+                      e.currentTarget.style.borderColor = 'var(--accent)';
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border)';
-                    e.currentTarget.style.opacity = '0.8';
-                    e.currentTarget.style.transform = 'scale(1)';
+                    if (!draggedItemId) {
+                      e.currentTarget.style.borderColor = 'var(--border)';
+                      e.currentTarget.style.opacity = '0.8';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }
                   }}
                   title={item.name}
                 >

@@ -144,6 +144,34 @@ function App() {
     }
   };
 
+  const handleReorderItems = (_categoryId: string, itemIds: string[]) => {
+    if (!selectedMod) return;
+    setStatus('排序中…');
+    try {
+      setMods((prevMods) => {
+        return prevMods.map((mod) => {
+          if (mod.id !== selectedMod.id) return mod;
+          
+          // 创建新的 items 数组，保持原有顺序但调整分类内的顺序
+          const itemsMap = new Map(mod.items.map(item => [item.id, item]));
+          const reorderedItems = itemIds.map(id => itemsMap.get(id)).filter(Boolean) as typeof mod.items;
+          const otherItems = mod.items.filter(item => !itemIds.includes(item.id));
+          
+          return {
+            ...mod,
+            items: [...reorderedItems, ...otherItems]
+          };
+        });
+      });
+      
+      setStatus('排序已更新');
+      setTimeout(() => setStatus(''), 1500);
+    } catch (err) {
+      console.error(err);
+      setStatus('排序失败');
+    }
+  };
+
   const filteredContrib = useMemo(() => {
     if (!selectedModId) return contributions;
     return contributions.filter((c) => c.modId === selectedModId).slice(0, 10);
@@ -181,6 +209,7 @@ function App() {
           onReassignItem={handleReassignItem}
           onAddCategory={handleAddCategory}
           onDeleteCategory={handleDeleteCategory}
+          onReorderItems={handleReorderItems}
         />
       </div>
 
