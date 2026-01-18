@@ -44,14 +44,35 @@ function App() {
     if (!selectedMod) return;
     setStatus('分类中…');
     try {
-      const { mod, contributions: updatedContrib } = await modService.assignCategory(
-        selectedMod.id,
+      // 直接在本地更新数据，不依赖 modService 的内部存储
+      setMods((prevMods) => {
+        return prevMods.map((mod) => {
+          if (mod.id !== selectedMod.id) return mod;
+          
+          return {
+            ...mod,
+            items: mod.items.map((item) => {
+              if (item.id === itemId) {
+                return { ...item, currentCategoryId: newCategoryId };
+              }
+              return item;
+            })
+          };
+        });
+      });
+
+      // 记录贡献
+      const newContribution = {
+        id: crypto.randomUUID(),
+        modId: selectedMod.id,
         itemId,
         newCategoryId,
-        '玩家'
-      );
-      setMods((prev) => prev.map((m) => (m.id === mod.id ? mod : m)));
-      setContributions(updatedContrib);
+        contributor: '玩家',
+        createdAt: new Date().toISOString(),
+        status: 'pending' as const
+      };
+      setContributions((prev) => [newContribution, ...prev]);
+      
       setStatus('分类已更新');
       setTimeout(() => setStatus(''), 2000);
     } catch (err) {
