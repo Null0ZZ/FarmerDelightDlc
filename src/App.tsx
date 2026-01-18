@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { ModDetail } from './components/ModDetail';
 import { ModList } from './components/ModList';
 import { ConfigManager } from './components/ConfigManager';
-import { modService } from './api/modService';
 import { Contribution, ModMeta } from './types';
 
 function App() {
