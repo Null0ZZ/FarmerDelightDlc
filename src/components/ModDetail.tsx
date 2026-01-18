@@ -64,7 +64,7 @@ export const ModDetail = ({
         <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', maxHeight: '180px' }}>
           <div className="section-title" style={{ fontSize: 13, marginBottom: 8 }}>分类</div>
           <div style={{ flex: 1, overflowY: 'auto', paddingRight: 6 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 8 }}>
+            <div className="categories-grid">
               {mod.categories.map((cat) => {
                 const count = mod.items.filter((i) => i.currentCategoryId === cat.id).length;
                 return (
@@ -128,7 +128,7 @@ export const ModDetail = ({
 
           {selectedCategoryId && itemsInCategory.length > 0 ? (
             <div style={{ flex: 1, overflowY: 'auto', paddingRight: 6 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 8 }}>
+              <div className="items-grid">
                 {itemsInCategory.map((item) => (
                 <div
                   key={item.id}

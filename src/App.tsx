@@ -102,7 +102,7 @@ function App() {
         </div>
       </section>
 
-      <div className="grid" style={{ gridTemplateColumns: '280px 1fr', gap: 16 }}>
+      <div className="main-grid">
         <ModList mods={mods} activeId={selectedModId} onSelect={(id) => {
           setSelectedModId(id);
           const mod = mods.find(m => m.id === id);
