@@ -32,7 +32,7 @@ export const ModDetail = ({
 
   const selectedCategory = mod.categories.find((c) => c.id === selectedCategoryId);
   const itemsInCategory = selectedCategoryId
-    ? mod.items.filter((i) => i.currentCategoryId === selectedCategoryId)
+    ? mod.items.filter((i) => i.currentCategoryId === selectedCategoryId && i.currentCategoryId !== '')
     : [];
   
   const selectedItem = selectedItemId 
