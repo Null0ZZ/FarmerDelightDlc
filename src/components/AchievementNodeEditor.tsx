@@ -237,6 +237,48 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
+  // 全局鼠标拖动处理 - 实现节点拖动和背景拖拽
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      // 节点拖动
+      if (draggedNodeId) {
+        const newPos = {
+          x: e.clientX - dragOffset.x + scrollOffset.x,
+          y: e.clientY - dragOffset.y + scrollOffset.y
+        };
+        setNodes((prev) =>
+          prev.map((n) =>
+            n.id === draggedNodeId ? { ...n, position: newPos } : n
+          )
+        );
+      }
+      
+      // 背景拖拽移动视窗
+      if (backgroundDragStart && containerRef.current) {
+        const dx = e.clientX - backgroundDragStart.x;
+        const dy = e.clientY - backgroundDragStart.y;
+        
+        containerRef.current.scrollLeft -= dx;
+        containerRef.current.scrollTop -= dy;
+        
+        setBackgroundDragStart({ x: e.clientX, y: e.clientY });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDraggedNodeId(null);
+      setBackgroundDragStart(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggedNodeId, dragOffset, backgroundDragStart, scrollOffset]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -328,7 +370,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                       left: `${pos.x}px`,
                       top: `${pos.y}px`,
                       zIndex: isSelected ? 10 : isDragging ? 9 : 5,
-                      cursor: isDragging ? 'grabbing' : 'grab'
+                      cursor: isDragging ? 'grabbing' : 'grab',
+                      userSelect: 'none'
                     }}
                     onMouseDown={(e) => {
                       if (e.button === 0) { // 左键
@@ -339,29 +382,6 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                         });
                         setSelectedNodeId(node.id);
                         e.stopPropagation();
-                      }
-                    }}
-                    onMouseMove={(e) => {
-                      if (draggedNodeId === node.id) {
-                        const newPos = {
-                          x: e.clientX - dragOffset.x + scrollOffset.x,
-                          y: e.clientY - dragOffset.y + scrollOffset.y
-                        };
-                        setNodes((prev) =>
-                          prev.map((n) =>
-                            n.id === node.id ? { ...n, position: newPos } : n
-                          )
-                        );
-                      }
-                    }}
-                    onMouseUp={() => {
-                      if (draggedNodeId === node.id) {
-                        setDraggedNodeId(null);
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      if (draggedNodeId === node.id) {
-                        setDraggedNodeId(null);
                       }
                     }}
                   >
