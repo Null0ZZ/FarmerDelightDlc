@@ -190,14 +190,18 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
           y: (toPos.y - scrollOffset.y) * scale
         };
 
-        // 从子节点中心到父节点中心的连线（节点宽度60px，中心在30px）
+        // 节点在HTML中应用了 transform: scale()，但中心点计算需要考虑缩放
+        // 节点宽度60px，未缩放时中心在30px，但由于transform-origin是左上角，缩放后中心点位置变化
+        // 正确的中心点 = 节点位置 + (30 * scale) 不对，应该是位置本身就已经考虑了缩放
+        // 实际上应该是：HTML元素左上角在 pos.x*scale, pos.y*scale
+        // 节点宽60px，缩放后是 60*scale，中心在 30*scale 处
         const fromCenter = {
-          x: fromPosAdjusted.x + 30,
-          y: fromPosAdjusted.y + 30
+          x: fromPosAdjusted.x + 30 * scale,
+          y: fromPosAdjusted.y + 30 * scale
         };
         const toCenter = {
-          x: toPosAdjusted.x + 30,
-          y: toPosAdjusted.y + 30
+          x: toPosAdjusted.x + 30 * scale,
+          y: toPosAdjusted.y + 30 * scale
         };
 
         // 获取泛光颜色（来自父节点）
@@ -785,7 +789,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
       {/* 物品选择弹窗 */}
       {modalType === 'select-item' && (
         <div className="modal-backdrop" onClick={() => setModalType(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500, width: '90%' }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, width: '95%', maxHeight: '90vh' }}>
             <div className="modal-header">
               <div>
                 <div className="small">选择物品</div>
@@ -837,8 +841,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
               </div>
             </div>
 
-            <div className="modal-body" style={{ maxHeight: 500, overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 4 }}>
+            <div className="modal-body" style={{ maxHeight: 'calc(90vh - 120px)', overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(20, 1fr)', gap: 6 }}>
                 {mod.items
                   .filter((item) => selectedCategory === null || item.currentCategoryId === selectedCategory)
                   .map((item) => (
@@ -858,10 +862,10 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 12,
+                        fontSize: 14,
                         transition: 'all 0.15s ease',
                         overflow: 'hidden',
-                        padding: 2,
+                        padding: 4,
                         minWidth: 0
                       }}
                       title={item.name}
