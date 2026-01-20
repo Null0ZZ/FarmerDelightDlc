@@ -7,8 +7,9 @@ import { Contribution, ModMeta, AchievementNode } from './types';
 import BmobAuth from './components/BmobAuth';
 import { useBmobAuth } from './hooks/useBmobAuth';
 import { loadModsForUser, saveMods, updateMods, loadContributionsForUser, saveContributions, updateContributions } from './lib/bmob';
+import BlockbenchIntegration from './components/BlockbenchIntegration';
 
-type EditorMode = 'classification' | 'achievement-nodes';
+type EditorMode = 'classification' | 'achievement-nodes' | 'modeling';
 
 function App() {
   const { user } = useBmobAuth();
@@ -76,6 +77,16 @@ function App() {
 
     load();
   }, [user]);
+
+  // 监听建模模式切换事件
+  useEffect(() => {
+    const handleSwitchToModeling = () => {
+      setEditorMode('modeling');
+    };
+
+    window.addEventListener('switch-to-modeling', handleSwitchToModeling);
+    return () => window.removeEventListener('switch-to-modeling', handleSwitchToModeling);
+  }, []);
 
   // 保存模组数据到云端
   const saveModsToCloud = async (updatedMods: ModMeta[]) => {
@@ -347,6 +358,21 @@ function App() {
             onUpdateNodes={handleUpdateAchievementNodes}
             onSwitchMode={() => setEditorMode('classification')}
           />
+        )}
+
+        {editorMode === 'modeling' && (
+          <div className="modeling-panel">
+            <div className="panel-header">
+              <h3>内置建模工具</h3>
+              <button 
+                className="btn secondary"
+                onClick={() => setEditorMode('classification')}
+              >
+                返回分类编辑
+              </button>
+            </div>
+            <BlockbenchIntegration />
+          </div>
         )}
       </div>
 

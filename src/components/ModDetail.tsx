@@ -149,6 +149,23 @@ export const ModDetail = ({
             >
               ⭐ 编辑节点
             </button>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('switch-to-modeling'))}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'rgba(255, 193, 109, 0.1)',
+                border: '1px solid #ffb366',
+                color: '#ffb366',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              🎨 建模工具
+            </button>
           </div>
         )}
       </div>

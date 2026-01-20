@@ -391,3 +391,72 @@ a {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* 建模工具样式 */
+.modeling-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.panel-header h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.blockbench-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 16px;
+}
+
+.blockbench-iframe-wrapper {
+  /* 更高的默认高度，适配建模编辑器 */
+  height: 72vh;
+  min-height: 560px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.blockbench-iframe-wrapper iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.blockbench-info {
+  background: var(--panel);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.blockbench-info ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.blockbench-info li {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
