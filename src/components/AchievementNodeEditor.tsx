@@ -190,14 +190,14 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
           y: (toPos.y - scrollOffset.y) * scale
         };
 
-        // 从子节点中心到父节点中心的连线（而不是 +30 偏移）
+        // 从子节点中心到父节点中心的连线（节点宽度60px，中心在30px）
         const fromCenter = {
-          x: fromPosAdjusted.x + 30 * scale,
-          y: fromPosAdjusted.y + 30 * scale
+          x: fromPosAdjusted.x + 30,
+          y: fromPosAdjusted.y + 30
         };
         const toCenter = {
-          x: toPosAdjusted.x + 30 * scale,
-          y: toPosAdjusted.y + 30 * scale
+          x: toPosAdjusted.x + 30,
+          y: toPosAdjusted.y + 30
         };
 
         // 获取泛光颜色（来自父节点）
@@ -268,8 +268,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
       // 节点拖动
       if (draggedNodeId) {
         const newPos = {
-          x: e.clientX - dragOffset.x + scrollOffset.x,
-          y: e.clientY - dragOffset.y + scrollOffset.y
+          x: (e.clientX - dragOffset.x) / scale,
+          y: (e.clientY - dragOffset.y) / scale
         };
         setNodes((prev) =>
           prev.map((n) =>
@@ -404,8 +404,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                       if (e.button === 0) { // 左键
                         setDraggedNodeId(node.id);
                         setDragOffset({
-                          x: (e.clientX - pos.x * scale) / scale,
-                          y: (e.clientY - pos.y * scale) / scale
+                          x: e.clientX - pos.x * scale,
+                          y: e.clientY - pos.y * scale
                         });
                         setSelectedNodeId(node.id);
                         e.stopPropagation();
@@ -688,6 +688,74 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
               >
                 🗑️ 删除节点
               </button>
+
+              <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.1)', margin: '8px 0' }} />
+
+              <button
+                onClick={() => {
+                  const json = JSON.stringify(nodes, null, 2);
+                  const blob = new Blob([json], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `nodes-${Date.now()}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(124, 242, 156, 0.1)',
+                  border: '1px solid rgba(124, 242, 156, 0.3)',
+                  color: '#7cf29c',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                📥 导出节点编辑
+              </button>
+
+              <button
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = '.json';
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      try {
+                        const importedNodes = JSON.parse(event.target?.result as string);
+                        if (Array.isArray(importedNodes)) {
+                          setNodes(importedNodes);
+                          setSelectedNodeId(null);
+                          alert('节点导入成功！');
+                        } else {
+                          alert('导入格式错误');
+                        }
+                      } catch (error) {
+                        alert('导入失败: ' + (error as Error).message);
+                      }
+                    };
+                    reader.readAsText(file);
+                  };
+                  input.click();
+                }}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(124, 242, 156, 0.1)',
+                  border: '1px solid rgba(124, 242, 156, 0.3)',
+                  color: '#7cf29c',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                📤 导入节点编辑
+              </button>
             </div>
           )}
 
@@ -769,8 +837,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
               </div>
             </div>
 
-            <div className="modal-body" style={{ maxHeight: 350, overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(20, 1fr)', gap: 2 }}>
+            <div className="modal-body" style={{ maxHeight: 500, overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 4 }}>
                 {mod.items
                   .filter((item) => selectedCategory === null || item.currentCategoryId === selectedCategory)
                   .map((item) => (
@@ -790,10 +858,10 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 8,
+                        fontSize: 12,
                         transition: 'all 0.15s ease',
                         overflow: 'hidden',
-                        padding: 0,
+                        padding: 2,
                         minWidth: 0
                       }}
                       title={item.name}
