@@ -7,7 +7,7 @@ type Props = {
   onSwitchMode: () => void;
 };
 
-type ModalType = null | 'select-item' | 'set-parent' | 'edit-description';
+type ModalType = null | 'select-item' | 'set-parent' | 'edit-description' | 'set-name' | 'set-color';
 
 export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Props) => {
   const [nodes, setNodes] = useState<AchievementNode[]>(mod.achievementGraph?.nodes || []);
@@ -18,6 +18,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [backgroundDragStart, setBackgroundDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [scale, setScale] = useState(1);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -151,7 +153,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
     );
   };
 
-  // 绘制连线 - 支持滚动偏移
+  // 绘制连线 - 支持滚动偏移、缩放、中心点连接、正确箭头方向和颜色
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -178,43 +180,66 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
 
         const toPos = getNodePos(parentNode);
         
-        // 减去滚动偏移，使连线跟随滚动
+        // 减去滚动偏移，使连线跟随滚动，应用缩放
         const fromPosAdjusted = {
-          x: fromPos.x - scrollOffset.x,
-          y: fromPos.y - scrollOffset.y
+          x: (fromPos.x - scrollOffset.x) * scale + canvas.width / 2 * (1 - scale),
+          y: (fromPos.y - scrollOffset.y) * scale + canvas.height / 2 * (1 - scale)
         };
         const toPosAdjusted = {
-          x: toPos.x - scrollOffset.x,
-          y: toPos.y - scrollOffset.y
+          x: (toPos.x - scrollOffset.x) * scale + canvas.width / 2 * (1 - scale),
+          y: (toPos.y - scrollOffset.y) * scale + canvas.height / 2 * (1 - scale)
         };
+
+        // 从子节点中心到父节点中心的连线（而不是 +30 偏移）
+        const fromCenter = {
+          x: fromPosAdjusted.x + 30 * scale,
+          y: fromPosAdjusted.y + 30 * scale
+        };
+        const toCenter = {
+          x: toPosAdjusted.x + 30 * scale,
+          y: toPosAdjusted.y + 30 * scale
+        };
+
+        // 获取泛光颜色（来自父节点）
+        let glowColor = '124, 242, 156'; // 默认绿色
+        if (parentNode.glowColor) {
+          // 如果是十六进制颜色，转换为 rgb
+          if (parentNode.glowColor.startsWith('#')) {
+            const hex = parentNode.glowColor.slice(1);
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            glowColor = `${r}, ${g}, ${b}`;
+          }
+        }
 
         // 绘制直线连接（主线）
         const alpha = 0.4 + 0.2 * Math.sin(time * 2);  // 泛光效果
-        ctx.strokeStyle = `rgba(124, 242, 156, ${alpha})`;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(${glowColor}, ${alpha})`;
+        ctx.lineWidth = 2 * scale;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(fromPosAdjusted.x + 30, fromPosAdjusted.y + 30);
-        ctx.lineTo(toPosAdjusted.x + 30, toPosAdjusted.y + 30);
+        ctx.moveTo(fromCenter.x, fromCenter.y);
+        ctx.lineTo(toCenter.x, toCenter.y);
         ctx.stroke();
 
         // 绘制泛光光晕（外层）
-        ctx.strokeStyle = `rgba(124, 242, 156, ${0.1 + 0.1 * Math.sin(time * 2)})`;
-        ctx.lineWidth = 8;
+        ctx.strokeStyle = `rgba(${glowColor}, ${0.1 + 0.1 * Math.sin(time * 2)})`;
+        ctx.lineWidth = 8 * scale;
         ctx.beginPath();
-        ctx.moveTo(fromPosAdjusted.x + 30, fromPosAdjusted.y + 30);
-        ctx.lineTo(toPosAdjusted.x + 30, toPosAdjusted.y + 30);
+        ctx.moveTo(fromCenter.x, fromCenter.y);
+        ctx.lineTo(toCenter.x, toCenter.y);
         ctx.stroke();
 
-        // 绘制箭头
-        const angle = Math.atan2(toPosAdjusted.y - fromPosAdjusted.y, toPosAdjusted.x - fromPosAdjusted.x);
-        const arrowSize = 10;
+        // 绘制箭头 - 从子节点指向父节点（已修正方向）
+        const angle = Math.atan2(toCenter.y - fromCenter.y, toCenter.x - fromCenter.x);
+        const arrowSize = 10 * scale;
         const arrowPos = {
-          x: toPosAdjusted.x + 30 - Math.cos(angle) * 20,
-          y: toPosAdjusted.y + 30 - Math.sin(angle) * 20
+          x: toCenter.x - Math.cos(angle) * 20 * scale,
+          y: toCenter.y - Math.sin(angle) * 20 * scale
         };
 
-        ctx.fillStyle = `rgba(124, 242, 156, ${0.6 + 0.2 * Math.sin(time * 2)})`;
+        ctx.fillStyle = `rgba(${glowColor}, ${0.6 + 0.2 * Math.sin(time * 2)})`;
         ctx.beginPath();
         ctx.moveTo(arrowPos.x, arrowPos.y);
         ctx.lineTo(
@@ -233,7 +258,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
     // 每帧重新绘制以保持动画流畅
     const frameId = requestAnimationFrame(() => {});
     return () => cancelAnimationFrame(frameId);
-  }, [nodes, scrollOffset]);
+  }, [nodes, scrollOffset, scale]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
@@ -361,29 +386,33 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                 const item = node.itemId ? mod.items.find((i) => i.id === node.itemId) : null;
                 const isSelected = node.id === selectedNodeId;
                 const isDragging = node.id === draggedNodeId;
+                const isHovered = node.id === hoveredNodeId;
 
                 return (
                   <div
                     key={node.id}
                     style={{
                       position: 'absolute',
-                      left: `${pos.x}px`,
-                      top: `${pos.y}px`,
-                      zIndex: isSelected ? 10 : isDragging ? 9 : 5,
+                      left: `${pos.x * scale}px`,
+                      top: `${pos.y * scale}px`,
+                      zIndex: isSelected ? 10 : isDragging ? 9 : isHovered ? 6 : 5,
                       cursor: isDragging ? 'grabbing' : 'grab',
-                      userSelect: 'none'
+                      userSelect: 'none',
+                      transform: `scale(${scale})`
                     }}
                     onMouseDown={(e) => {
                       if (e.button === 0) { // 左键
                         setDraggedNodeId(node.id);
                         setDragOffset({
-                          x: e.clientX - pos.x,
-                          y: e.clientY - pos.y
+                          x: (e.clientX - pos.x * scale) / scale,
+                          y: (e.clientY - pos.y * scale) / scale
                         });
                         setSelectedNodeId(node.id);
                         e.stopPropagation();
                       }
                     }}
+                    onMouseEnter={() => setHoveredNodeId(node.id)}
+                    onMouseLeave={() => setHoveredNodeId(null)}
                   >
                     <button
                       onClick={() => {
@@ -407,7 +436,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                         transition: 'all 0.15s ease',
                         color: 'var(--text)',
                         padding: 0,
-                        overflow: 'hidden'
+                        overflow: 'hidden',
+                        position: 'relative'
                       }}
                       title={item?.name || node.name}
                       onContextMenu={(e) => {
@@ -436,6 +466,31 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                     <div style={{ fontSize: 10, textAlign: 'center', marginTop: 4, maxWidth: 60 }} className="muted">
                       {node.name}
                     </div>
+                    
+                    {/* 悬停时显示描述 */}
+                    {(isHovered || isSelected) && node.description && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: '100%',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          background: 'rgba(0, 0, 0, 0.9)',
+                          color: 'var(--text)',
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          fontSize: 11,
+                          maxWidth: 200,
+                          whiteSpace: 'normal',
+                          wordBreak: 'break-word',
+                          marginBottom: 8,
+                          zIndex: 1000,
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        {node.description}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -444,7 +499,26 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
         </div>
 
         {/* 右侧：控制面板 */}
-        <div style={{ width: 200, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* 缩放控制 */}
+          <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)' }}>
+              📏 缩放 ({Math.round(scale * 100)}%)
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={scale}
+              onChange={(e) => setScale(parseFloat(e.target.value))}
+              style={{
+                width: '100%',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+
           {/* 按钮菜单 */}
           <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
@@ -489,6 +563,22 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
               </button>
 
               <button
+                onClick={() => setModalType('set-name')}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                ✏️ 设置名称
+              </button>
+
+              <button
                 onClick={() => setModalType('select-item')}
                 style={{
                   padding: '6px 10px',
@@ -520,6 +610,35 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
               >
                 📝 设置描述
                 {selectedNode.description && ` ✓`}
+              </button>
+
+              <button
+                onClick={() => setModalType('set-color')}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                🎨 设置泛光颜色
+                {selectedNode.glowColor && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 12,
+                      height: 12,
+                      background: selectedNode.glowColor,
+                      borderRadius: 2,
+                      marginLeft: 4,
+                      verticalAlign: 'middle'
+                    }}
+                  />
+                )}
               </button>
 
               <button
@@ -583,7 +702,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
       {/* 物品选择弹窗 */}
       {modalType === 'select-item' && (
         <div className="modal-backdrop" onClick={() => setModalType(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500, width: '90%' }}>
             <div className="modal-header">
               <div>
                 <div className="small">选择物品</div>
@@ -600,13 +719,13 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                 <button
                   onClick={() => setSelectedCategory(null)}
                   style={{
-                    padding: '4px 10px',
+                    padding: '4px 8px',
                     background: selectedCategory === null ? 'rgba(124, 242, 156, 0.2)' : 'rgba(255, 255, 255, 0.08)',
                     border: selectedCategory === null ? '1px solid var(--accent-strong)' : '1px solid var(--border)',
                     color: 'var(--text)',
                     borderRadius: 4,
                     cursor: 'pointer',
-                    fontSize: 11,
+                    fontSize: 10,
                     whiteSpace: 'nowrap',
                     transition: 'all 0.15s ease'
                   }}
@@ -618,13 +737,13 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
                     style={{
-                      padding: '4px 10px',
+                      padding: '4px 8px',
                       background: selectedCategory === cat.id ? 'rgba(124, 242, 156, 0.2)' : 'rgba(255, 255, 255, 0.08)',
                       border: selectedCategory === cat.id ? '1px solid var(--accent-strong)' : '1px solid var(--border)',
                       color: 'var(--text)',
                       borderRadius: 4,
                       cursor: 'pointer',
-                      fontSize: 11,
+                      fontSize: 10,
                       whiteSpace: 'nowrap',
                       transition: 'all 0.15s ease'
                     }}
@@ -635,8 +754,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
               </div>
             </div>
 
-            <div className="modal-body" style={{ maxHeight: 500, overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 4 }}>
+            <div className="modal-body" style={{ maxHeight: 350, overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(20, 1fr)', gap: 2 }}>
                 {mod.items
                   .filter((item) => selectedCategory === null || item.currentCategoryId === selectedCategory)
                   .map((item) => (
@@ -651,12 +770,12 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                         border: selectedNode?.itemId === item.id
                           ? '2px solid var(--accent-strong)'
                           : '1px solid var(--border)',
-                        borderRadius: 6,
+                        borderRadius: 4,
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 14,
+                        fontSize: 8,
                         transition: 'all 0.15s ease',
                         overflow: 'hidden',
                         padding: 0,
@@ -672,7 +791,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                             width: '100%',
                             height: '100%',
                             objectFit: 'contain',
-                            padding: 2
+                            padding: 1
                           }}
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
@@ -805,6 +924,131 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                   resize: 'vertical'
                 }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 设置节点名称弹窗 */}
+      {modalType === 'set-name' && selectedNode && (
+        <div className="modal-backdrop" onClick={() => setModalType(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="small">编辑节点名称</div>
+                <strong>{selectedNode.name}</strong>
+              </div>
+              <button className="button" onClick={() => setModalType(null)}>
+                关闭
+              </button>
+            </div>
+            <div className="modal-body">
+              <input
+                type="text"
+                defaultValue={selectedNode.name}
+                placeholder="输入节点名称..."
+                onBlur={(e) => {
+                  if (e.target.value.trim()) {
+                    setNodes((prev) =>
+                      prev.map((n) =>
+                        n.id === selectedNode.id
+                          ? { ...n, name: e.target.value.trim() }
+                          : n
+                      )
+                    );
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  color: 'var(--text)',
+                  fontSize: 14,
+                  outline: 'none',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 设置泛光颜色弹窗 */}
+      {modalType === 'set-color' && selectedNode && (
+        <div className="modal-backdrop" onClick={() => setModalType(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="small">设置泛光颜色</div>
+                <strong>{selectedNode.name}</strong>
+              </div>
+              <button className="button" onClick={() => setModalType(null)}>
+                关闭
+              </button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--text)', marginBottom: 8, display: 'block' }}>
+                    选择颜色
+                  </label>
+                  <input
+                    type="color"
+                    defaultValue={selectedNode.glowColor || '#7cf29c'}
+                    onChange={(e) => {
+                      setNodes((prev) =>
+                        prev.map((n) =>
+                          n.id === selectedNode.id
+                            ? { ...n, glowColor: e.target.value }
+                            : n
+                        )
+                      );
+                    }}
+                    style={{
+                      width: '100%',
+                      height: 60,
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+                
+                <div style={{ padding: '8px 12px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: 6 }}>
+                  <p style={{ fontSize: 11, color: 'var(--text)', margin: '0 0 8px 0' }}>
+                    💡 提示：选择的颜色将用于此节点及其子节点的连线泛光效果
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {['#7cf29c', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#a29bfe'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => {
+                        setNodes((prev) =>
+                          prev.map((n) =>
+                            n.id === selectedNode.id
+                              ? { ...n, glowColor: color }
+                              : n
+                          )
+                        );
+                      }}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        background: color,
+                        border: selectedNode.glowColor === color ? '3px solid white' : '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>

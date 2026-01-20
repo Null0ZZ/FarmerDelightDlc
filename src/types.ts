@@ -46,6 +46,7 @@ export type AchievementNode = {
     x: number;
     y: number;
   };
+  glowColor?: string;        // 泛光颜色（十六进制或 rgba）
 };
 
 export type AchievementGraph = {
