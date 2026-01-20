@@ -13,6 +13,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
   const [nodes, setNodes] = useState<AchievementNode[]>(mod.achievementGraph?.nodes || []);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [modalType, setModalType] = useState<ModalType>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // 获取节点可见位置
@@ -35,6 +36,22 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
       position: {
         x: 100 + (nodes.length % 3) * 150,
         y: 100 + Math.floor(nodes.length / 3) * 150
+      }
+    };
+    setNodes([...nodes, newNode]);
+  };
+
+  // 创建子节点
+  const handleCreateChildNode = () => {
+    if (!selectedNodeId) return;
+    const selectedPos = getNodePos(nodes.find((n) => n.id === selectedNodeId)!);
+    const newNode: AchievementNode = {
+      id: crypto.randomUUID(),
+      name: `子节点 ${nodes.length + 1}`,
+      parentNodeIds: [selectedNodeId],
+      position: {
+        x: selectedPos.x + 120,
+        y: selectedPos.y + 80
       }
     };
     setNodes([...nodes, newNode]);
@@ -134,9 +151,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
     ctx.fillStyle = 'transparent';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 绘制连线
-    ctx.strokeStyle = 'rgba(124, 242, 156, 0.3)';
-    ctx.lineWidth = 2;
+    // 获取动画时间用于泛光效果
+    const time = Date.now() / 1000;
 
     for (const node of nodes) {
       const fromPos = getNodePos(node);
@@ -147,29 +163,33 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
 
         const toPos = getNodePos(parentNode);
 
-        // 绘制贝塞尔曲线
+        // 绘制直线连接（主线）
+        const alpha = 0.4 + 0.2 * Math.sin(time * 2);  // 泛光效果
+        ctx.strokeStyle = `rgba(124, 242, 156, ${alpha})`;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(fromPos.x + 30, fromPos.y + 30);
-        const controlY = (fromPos.y + toPos.y) / 2;
-        ctx.bezierCurveTo(
-          fromPos.x + 30,
-          controlY,
-          toPos.x + 30,
-          controlY,
-          toPos.x + 30,
-          toPos.y + 30
-        );
+        ctx.lineTo(toPos.x + 30, toPos.y + 30);
+        ctx.stroke();
+
+        // 绘制泛光光晕（外层）
+        ctx.strokeStyle = `rgba(124, 242, 156, ${0.1 + 0.1 * Math.sin(time * 2)})`;
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(fromPos.x + 30, fromPos.y + 30);
+        ctx.lineTo(toPos.x + 30, toPos.y + 30);
         ctx.stroke();
 
         // 绘制箭头
         const angle = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
-        const arrowSize = 8;
+        const arrowSize = 10;
         const arrowPos = {
-          x: toPos.x + 30 - Math.cos(angle) * 15,
-          y: toPos.y + 30 - Math.sin(angle) * 15
+          x: toPos.x + 30 - Math.cos(angle) * 20,
+          y: toPos.y + 30 - Math.sin(angle) * 20
         };
 
-        ctx.fillStyle = 'rgba(124, 242, 156, 0.6)';
+        ctx.fillStyle = `rgba(124, 242, 156, ${0.6 + 0.2 * Math.sin(time * 2)})`;
         ctx.beginPath();
         ctx.moveTo(arrowPos.x, arrowPos.y);
         ctx.lineTo(
@@ -184,6 +204,10 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
         ctx.fill();
       }
     }
+
+    // 每帧重新绘制以保持动画流畅
+    const frameId = requestAnimationFrame(() => {});
+    return () => cancelAnimationFrame(frameId);
   }, [nodes]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
@@ -328,6 +352,22 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
               </div>
 
               <button
+                onClick={handleCreateChildNode}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                ➕ 创建子节点
+              </button>
+
+              <button
                 onClick={() => setModalType('select-item')}
                 style={{
                   padding: '6px 10px',
@@ -432,51 +472,96 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                 关闭
               </button>
             </div>
-            <div className="modal-body" style={{ maxHeight: 500, overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-                {mod.items.map((item) => (
+            
+            {/* 分类筛选选项卡 */}
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  style={{
+                    padding: '4px 10px',
+                    background: selectedCategory === null ? 'rgba(124, 242, 156, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                    border: selectedCategory === null ? '1px solid var(--accent-strong)' : '1px solid var(--border)',
+                    color: 'var(--text)',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  全部
+                </button>
+                {mod.categories.map((cat) => (
                   <button
-                    key={item.id}
-                    onClick={() => handleSelectItem(item.id)}
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
                     style={{
-                      aspectRatio: '1',
-                      background: selectedNode?.itemId === item.id
-                        ? 'rgba(124, 242, 156, 0.2)'
-                        : 'rgba(255, 255, 255, 0.08)',
-                      border: selectedNode?.itemId === item.id
-                        ? '2px solid var(--accent-strong)'
-                        : '1px solid var(--border)',
-                      borderRadius: 12,
+                      padding: '4px 10px',
+                      background: selectedCategory === cat.id ? 'rgba(124, 242, 156, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                      border: selectedCategory === cat.id ? '1px solid var(--accent-strong)' : '1px solid var(--border)',
+                      color: 'var(--text)',
+                      borderRadius: 4,
                       cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 32,
-                      transition: 'all 0.15s ease',
-                      overflow: 'hidden',
-                      padding: 0
+                      fontSize: 11,
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease'
                     }}
-                    title={item.name}
                   >
-                    {item.texture ? (
-                      <img
-                        src={item.texture}
-                        alt={item.name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                          padding: 4
-                        }}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      '📦'
-                    )}
+                    {cat.name}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="modal-body" style={{ maxHeight: 500, overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
+                {mod.items
+                  .filter((item) => selectedCategory === null || item.currentCategoryId === selectedCategory)
+                  .map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleSelectItem(item.id)}
+                      style={{
+                        aspectRatio: '1',
+                        background: selectedNode?.itemId === item.id
+                          ? 'rgba(124, 242, 156, 0.2)'
+                          : 'rgba(255, 255, 255, 0.08)',
+                        border: selectedNode?.itemId === item.id
+                          ? '2px solid var(--accent-strong)'
+                          : '1px solid var(--border)',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 20,
+                        transition: 'all 0.15s ease',
+                        overflow: 'hidden',
+                        padding: 0,
+                        minWidth: 0
+                      }}
+                      title={item.name}
+                    >
+                      {item.texture ? (
+                        <img
+                          src={item.texture}
+                          alt={item.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            padding: 2
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        '📦'
+                      )}
+                    </button>
+                  ))}
               </div>
             </div>
           </div>
