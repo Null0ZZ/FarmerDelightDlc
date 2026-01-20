@@ -14,7 +14,12 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [modalType, setModalType] = useState<ModalType>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [scrollOffset, setScrollOffset] = useState({ x: 0, y: 0 });
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [backgroundDragStart, setBackgroundDragStart] = useState<{ x: number; y: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // 获取节点可见位置
   const getNodePos = (node: AchievementNode) => {
@@ -41,17 +46,27 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
     setNodes([...nodes, newNode]);
   };
 
-  // 创建子节点
+  // 创建子节点 - 使用旋转角度避免重叠
   const handleCreateChildNode = () => {
     if (!selectedNodeId) return;
-    const selectedPos = getNodePos(nodes.find((n) => n.id === selectedNodeId)!);
+    const selectedNode = nodes.find((n) => n.id === selectedNodeId)!;
+    const selectedPos = getNodePos(selectedNode);
+    
+    // 统计该节点已有的子节点数量
+    const childrenCount = nodes.filter((n) => n.parentNodeIds.includes(selectedNodeId)).length;
+    
+    // 计算旋转角度（均匀分布，从0度开始，顺时针分布）
+    const angle = (childrenCount * 60); // 每个子节点相隔60度
+    const radius = 150; // 子节点距离父节点的距离
+    const radian = (angle * Math.PI) / 180;
+    
     const newNode: AchievementNode = {
       id: crypto.randomUUID(),
       name: `子节点 ${nodes.length + 1}`,
       parentNodeIds: [selectedNodeId],
       position: {
-        x: selectedPos.x + 120,
-        y: selectedPos.y + 80
+        x: selectedPos.x + Math.cos(radian) * radius,
+        y: selectedPos.y + Math.sin(radian) * radius
       }
     };
     setNodes([...nodes, newNode]);
@@ -136,7 +151,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
     );
   };
 
-  // 绘制连线
+  // 绘制连线 - 支持滚动偏移
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -162,6 +177,16 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
         if (!parentNode) continue;
 
         const toPos = getNodePos(parentNode);
+        
+        // 减去滚动偏移，使连线跟随滚动
+        const fromPosAdjusted = {
+          x: fromPos.x - scrollOffset.x,
+          y: fromPos.y - scrollOffset.y
+        };
+        const toPosAdjusted = {
+          x: toPos.x - scrollOffset.x,
+          y: toPos.y - scrollOffset.y
+        };
 
         // 绘制直线连接（主线）
         const alpha = 0.4 + 0.2 * Math.sin(time * 2);  // 泛光效果
@@ -169,24 +194,24 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(fromPos.x + 30, fromPos.y + 30);
-        ctx.lineTo(toPos.x + 30, toPos.y + 30);
+        ctx.moveTo(fromPosAdjusted.x + 30, fromPosAdjusted.y + 30);
+        ctx.lineTo(toPosAdjusted.x + 30, toPosAdjusted.y + 30);
         ctx.stroke();
 
         // 绘制泛光光晕（外层）
         ctx.strokeStyle = `rgba(124, 242, 156, ${0.1 + 0.1 * Math.sin(time * 2)})`;
         ctx.lineWidth = 8;
         ctx.beginPath();
-        ctx.moveTo(fromPos.x + 30, fromPos.y + 30);
-        ctx.lineTo(toPos.x + 30, toPos.y + 30);
+        ctx.moveTo(fromPosAdjusted.x + 30, fromPosAdjusted.y + 30);
+        ctx.lineTo(toPosAdjusted.x + 30, toPosAdjusted.y + 30);
         ctx.stroke();
 
         // 绘制箭头
-        const angle = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
+        const angle = Math.atan2(toPosAdjusted.y - fromPosAdjusted.y, toPosAdjusted.x - fromPosAdjusted.x);
         const arrowSize = 10;
         const arrowPos = {
-          x: toPos.x + 30 - Math.cos(angle) * 20,
-          y: toPos.y + 30 - Math.sin(angle) * 20
+          x: toPosAdjusted.x + 30 - Math.cos(angle) * 20,
+          y: toPosAdjusted.y + 30 - Math.sin(angle) * 20
         };
 
         ctx.fillStyle = `rgba(124, 242, 156, ${0.6 + 0.2 * Math.sin(time * 2)})`;
@@ -208,7 +233,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
     // 每帧重新绘制以保持动画流畅
     const frameId = requestAnimationFrame(() => {});
     return () => cancelAnimationFrame(frameId);
-  }, [nodes]);
+  }, [nodes, scrollOffset]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
@@ -248,11 +273,52 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                 zIndex: 1
               }}
             />
-            <div style={{ position: 'relative', flex: 1, overflow: 'auto', zIndex: 2 }}>
+            <div 
+              ref={containerRef}
+              style={{ 
+                position: 'relative', 
+                flex: 1, 
+                overflow: 'auto', 
+                zIndex: 2,
+                cursor: backgroundDragStart ? 'grabbing' : 'grab'
+              }}
+              onScroll={(e) => {
+                const target = e.currentTarget;
+                setScrollOffset({
+                  x: target.scrollLeft,
+                  y: target.scrollTop
+                });
+              }}
+              onMouseDown={(e) => {
+                // 点击背景空白区域时开始拖拽
+                if (e.target === containerRef.current) {
+                  setBackgroundDragStart({ x: e.clientX, y: e.clientY });
+                }
+              }}
+              onMouseMove={(e) => {
+                if (backgroundDragStart && containerRef.current) {
+                  const dx = e.clientX - backgroundDragStart.x;
+                  const dy = e.clientY - backgroundDragStart.y;
+                  
+                  // 反向移动滚动条
+                  containerRef.current.scrollLeft -= dx;
+                  containerRef.current.scrollTop -= dy;
+                  
+                  setBackgroundDragStart({ x: e.clientX, y: e.clientY });
+                }
+              }}
+              onMouseUp={() => {
+                setBackgroundDragStart(null);
+              }}
+              onMouseLeave={() => {
+                setBackgroundDragStart(null);
+              }}
+            >
               {nodes.map((node) => {
                 const pos = getNodePos(node);
                 const item = node.itemId ? mod.items.find((i) => i.id === node.itemId) : null;
                 const isSelected = node.id === selectedNodeId;
+                const isDragging = node.id === draggedNodeId;
 
                 return (
                   <div
@@ -261,7 +327,42 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                       position: 'absolute',
                       left: `${pos.x}px`,
                       top: `${pos.y}px`,
-                      zIndex: isSelected ? 10 : 5
+                      zIndex: isSelected ? 10 : isDragging ? 9 : 5,
+                      cursor: isDragging ? 'grabbing' : 'grab'
+                    }}
+                    onMouseDown={(e) => {
+                      if (e.button === 0) { // 左键
+                        setDraggedNodeId(node.id);
+                        setDragOffset({
+                          x: e.clientX - pos.x,
+                          y: e.clientY - pos.y
+                        });
+                        setSelectedNodeId(node.id);
+                        e.stopPropagation();
+                      }
+                    }}
+                    onMouseMove={(e) => {
+                      if (draggedNodeId === node.id) {
+                        const newPos = {
+                          x: e.clientX - dragOffset.x + scrollOffset.x,
+                          y: e.clientY - dragOffset.y + scrollOffset.y
+                        };
+                        setNodes((prev) =>
+                          prev.map((n) =>
+                            n.id === node.id ? { ...n, position: newPos } : n
+                          )
+                        );
+                      }
+                    }}
+                    onMouseUp={() => {
+                      if (draggedNodeId === node.id) {
+                        setDraggedNodeId(null);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      if (draggedNodeId === node.id) {
+                        setDraggedNodeId(null);
+                      }
                     }}
                   >
                     <button
@@ -515,7 +616,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
             </div>
 
             <div className="modal-body" style={{ maxHeight: 500, overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 4 }}>
                 {mod.items
                   .filter((item) => selectedCategory === null || item.currentCategoryId === selectedCategory)
                   .map((item) => (
@@ -530,12 +631,12 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                         border: selectedNode?.itemId === item.id
                           ? '2px solid var(--accent-strong)'
                           : '1px solid var(--border)',
-                        borderRadius: 8,
+                        borderRadius: 6,
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 20,
+                        fontSize: 14,
                         transition: 'all 0.15s ease',
                         overflow: 'hidden',
                         padding: 0,
