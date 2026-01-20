@@ -460,3 +460,32 @@ a {
   color: var(--muted);
   font-size: 14px;
 }
+/* 手机端响应式 - 节点编辑器 */
+@media (max-width: 1023px) {
+  /* 改变布局为竖向 */
+  [style*="flex-direction: row"] {
+    flex-direction: column !important;
+  }
+  
+  /* 控制面板按钮改为水平滚动 */
+  .panel.glass {
+    min-width: auto;
+  }
+  
+  /* 节点编辑按钮文本缩写 */
+  .button-text {
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    margin: 16px auto 32px;
+    padding: 0 12px;
+    gap: 12px;
+  }
+  
+  .panel.glass {
+    padding: 12px;
+  }
+}

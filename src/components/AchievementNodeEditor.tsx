@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ModMeta, AchievementNode } from '../types';
 import { loadNodesForUser, saveNodes, updateNodes, isConfigured } from '../lib/bmob';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 type Props = {
   mod: ModMeta;
@@ -24,6 +25,9 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [remoteObjectId, setRemoteObjectId] = useState<string | null>(null);
+  
+  // 响应式布局检测 - 手机端 < 1024px
+  const isMobile = useMediaQuery('(max-width: 1023px)');
 
   // 获取节点可见位置
   const getNodePos = (node: AchievementNode) => {
@@ -348,8 +352,240 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
         <span className="small">成就节点编辑器</span>
       </div>
 
-      <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
-        {/* 左侧：节点画布 */}
+      <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0, flexDirection: isMobile ? 'column-reverse' : 'row' }}>
+        {/* 右侧/上方：控制面板 */}
+        <div style={{ width: isMobile ? '100%' : 220, display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 12, overflowX: isMobile ? 'auto' : 'visible', overflowY: isMobile ? 'visible' : 'auto', minHeight: isMobile ? 'fit-content' : 0 }}>
+          {/* 缩放控制 */}
+          <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: isMobile ? 180 : 'unset' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)' }}>
+              📏 缩放 ({Math.round(scale * 100)}%)
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={scale}
+              onChange={(e) => setScale(parseFloat(e.target.value))}
+              style={{
+                width: '100%',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+
+          {/* 按钮菜单 */}
+          <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: isMobile ? 150 : 'unset' }}>
+            <button
+              onClick={handleCreateRootNode}
+              style={{
+                padding: '8px 12px',
+                background: 'rgba(124, 242, 156, 0.1)',
+                border: '1px solid var(--accent-strong)',
+                color: 'var(--accent-strong)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              ➕ {isMobile ? '创建' : '创建根节点'}
+            </button>
+          </div>
+
+          {/* 节点菜单（选中节点时） */}
+          {selectedNode && (
+            <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: isMobile ? 200 : 'unset' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', whiteSpace: 'nowrap' }}>
+                选中：{selectedNode.name}
+              </div>
+
+              <button
+                onClick={handleCreateChildNode}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                ➕ 子节点
+              </button>
+
+              <button
+                onClick={() => setModalType('set-name')}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                ✏️ 名称
+              </button>
+
+              <button
+                onClick={() => setModalType('select-item')}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                📦 物品{selectedNode.itemId && ` ✓`}
+              </button>
+
+              <button
+                onClick={() => setModalType('edit-description')}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                📝 描述{selectedNode.description && ` ✓`}
+              </button>
+
+              <button
+                onClick={() => setModalType('set-color')}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🎨 颜色{selectedNode.glowColor && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 10,
+                      height: 10,
+                      background: selectedNode.glowColor,
+                      borderRadius: 2,
+                      marginLeft: 4,
+                      verticalAlign: 'middle'
+                    }}
+                  />
+                )}
+              </button>
+
+              <button
+                onClick={() => setModalType('set-parent')}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(109, 211, 255, 0.1)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🔗 父节点{selectedNode.parentNodeIds.length > 0 && ` (${selectedNode.parentNodeIds.length})`}
+              </button>
+
+              <button
+                onClick={() => handleDeleteNode(selectedNode.id)}
+                style={{
+                  padding: '6px 10px',
+                  background: 'rgba(255, 68, 68, 0.1)',
+                  border: '1px solid rgba(255, 68, 68, 0.3)',
+                  color: '#ff4444',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🗑️ 删除
+              </button>
+            </div>
+          )}
+
+          {/* 保存按钮 */}
+          <button
+            onClick={async () => {
+              onUpdateNodes(nodes);
+              try {
+                if (!isConfigured()) {
+                  console.warn('Bmob 未配置，跳过云端保存');
+                  return;
+                }
+                const sessionToken = localStorage.getItem('bmob_session');
+                const user = JSON.parse(localStorage.getItem('bmob_user') || 'null');
+                if (!sessionToken || !user || !user.objectId) {
+                  console.warn('未登录，跳过云端保存');
+                  return;
+                }
+
+                if (remoteObjectId) {
+                  await updateNodes(remoteObjectId, nodes, sessionToken);
+                  // 提示
+                  // eslint-disable-next-line no-alert
+                  alert('已保存到云端（更新）');
+                } else {
+                  const res = await saveNodes(user.objectId, nodes, sessionToken);
+                  if (res && res.objectId) setRemoteObjectId(res.objectId);
+                  // eslint-disable-next-line no-alert
+                  alert('已保存到云端');
+                }
+              } catch (e) {
+                console.error('云端保存失败', e);
+                // eslint-disable-next-line no-alert
+                alert('云端保存失败');
+              }
+            }}
+            style={{
+              padding: '10px 12px',
+              background: 'var(--accent-strong)',
+              border: 'none',
+              color: '#000',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+              transition: 'all 0.15s ease',
+              marginTop: 'auto'
+            }}
+          >
+            ✅ 保存更改
+          </button>
+        </div>
+
+        {/* 左侧/下方：节点画布 */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div className="panel glass" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, position: 'relative' }}>
             <canvas
@@ -535,302 +771,6 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
               })}
             </div>
           </div>
-        </div>
-
-        {/* 右侧：控制面板 */}
-        <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* 缩放控制 */}
-          <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)' }}>
-              📏 缩放 ({Math.round(scale * 100)}%)
-            </div>
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={scale}
-              onChange={(e) => setScale(parseFloat(e.target.value))}
-              style={{
-                width: '100%',
-                cursor: 'pointer'
-              }}
-            />
-          </div>
-
-          {/* 按钮菜单 */}
-          <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button
-              onClick={handleCreateRootNode}
-              style={{
-                padding: '8px 12px',
-                background: 'rgba(124, 242, 156, 0.1)',
-                border: '1px solid var(--accent-strong)',
-                color: 'var(--accent-strong)',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 600,
-                transition: 'all 0.15s ease'
-              }}
-            >
-              ➕ 创建根节点
-            </button>
-          </div>
-
-          {/* 节点菜单（选中节点时） */}
-          {selectedNode && (
-            <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)' }}>
-                选中节点：{selectedNode.name}
-              </div>
-
-              <button
-                onClick={handleCreateChildNode}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(109, 211, 255, 0.1)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                ➕ 创建子节点
-              </button>
-
-              <button
-                onClick={() => setModalType('set-name')}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(109, 211, 255, 0.1)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                ✏️ 设置名称
-              </button>
-
-              <button
-                onClick={() => setModalType('select-item')}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(109, 211, 255, 0.1)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                📦 设置物品
-                {selectedNode.itemId && ` ✓`}
-              </button>
-
-              <button
-                onClick={() => setModalType('edit-description')}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(109, 211, 255, 0.1)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                📝 设置描述
-                {selectedNode.description && ` ✓`}
-              </button>
-
-              <button
-                onClick={() => setModalType('set-color')}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(109, 211, 255, 0.1)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                🎨 设置泛光颜色
-                {selectedNode.glowColor && (
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      width: 12,
-                      height: 12,
-                      background: selectedNode.glowColor,
-                      borderRadius: 2,
-                      marginLeft: 4,
-                      verticalAlign: 'middle'
-                    }}
-                  />
-                )}
-              </button>
-
-              <button
-                onClick={() => setModalType('set-parent')}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(109, 211, 255, 0.1)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                🔗 设置父节点
-                {selectedNode.parentNodeIds.length > 0 && ` (${selectedNode.parentNodeIds.length})`}
-              </button>
-
-              <button
-                onClick={() => handleDeleteNode(selectedNode.id)}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(255, 68, 68, 0.1)',
-                  border: '1px solid rgba(255, 68, 68, 0.3)',
-                  color: '#ff4444',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                🗑️ 删除节点
-              </button>
-
-              <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.1)', margin: '8px 0' }} />
-
-              <button
-                onClick={() => {
-                  const json = JSON.stringify(nodes, null, 2);
-                  const blob = new Blob([json], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `nodes-${Date.now()}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(124, 242, 156, 0.1)',
-                  border: '1px solid rgba(124, 242, 156, 0.3)',
-                  color: '#7cf29c',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                📥 导出节点编辑
-              </button>
-
-              <button
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = '.json';
-                  input.onchange = (e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      try {
-                        const importedNodes = JSON.parse(event.target?.result as string);
-                        if (Array.isArray(importedNodes)) {
-                          setNodes(importedNodes);
-                          setSelectedNodeId(null);
-                          alert('节点导入成功！');
-                        } else {
-                          alert('导入格式错误');
-                        }
-                      } catch (error) {
-                        alert('导入失败: ' + (error as Error).message);
-                      }
-                    };
-                    reader.readAsText(file);
-                  };
-                  input.click();
-                }}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(124, 242, 156, 0.1)',
-                  border: '1px solid rgba(124, 242, 156, 0.3)',
-                  color: '#7cf29c',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                📤 导入节点编辑
-              </button>
-            </div>
-          )}
-
-          {/* 更新按钮 */}
-          <button
-            onClick={async () => {
-              onUpdateNodes(nodes);
-              try {
-                if (!isConfigured()) {
-                  console.warn('Bmob 未配置，跳过云端保存');
-                  return;
-                }
-                const sessionToken = localStorage.getItem('bmob_session');
-                const user = JSON.parse(localStorage.getItem('bmob_user') || 'null');
-                if (!sessionToken || !user || !user.objectId) {
-                  console.warn('未登录，跳过云端保存');
-                  return;
-                }
-
-                if (remoteObjectId) {
-                  await updateNodes(remoteObjectId, nodes, sessionToken);
-                  // 提示
-                  // eslint-disable-next-line no-alert
-                  alert('已保存到云端（更新）');
-                } else {
-                  const res = await saveNodes(user.objectId, nodes, sessionToken);
-                  if (res && res.objectId) setRemoteObjectId(res.objectId);
-                  // eslint-disable-next-line no-alert
-                  alert('已保存到云端');
-                }
-              } catch (e) {
-                console.error('云端保存失败', e);
-                // eslint-disable-next-line no-alert
-                alert('云端保存失败');
-              }
-            }}
-            style={{
-              padding: '10px 12px',
-              background: 'var(--accent-strong)',
-              border: 'none',
-              color: '#000',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontSize: 12,
-              fontWeight: 600,
-              transition: 'all 0.15s ease',
-              marginTop: 'auto'
-            }}
-          >
-            ✅ 保存更改
-          </button>
         </div>
       </div>
 
