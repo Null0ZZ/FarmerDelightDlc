@@ -22,6 +22,7 @@ export type ModMeta = {
   hero?: string;
   categories: Category[];
   items: ModItem[];
+  achievementGraph?: AchievementGraph;
 };
 
 export type Contribution = {
@@ -33,4 +34,21 @@ export type Contribution = {
   contributor: string;
   createdAt: string;
   status: 'pending' | 'approved' | 'rejected';
+};
+
+export type AchievementNode = {
+  id: string;
+  name: string;
+  itemId?: string;           // 关联的物品 ID
+  description?: string;      // 节点描述
+  parentNodeIds: string[];   // 父节点 ID 列表
+  position?: {                // 节点在画布上的位置
+    x: number;
+    y: number;
+  };
+};
+
+export type AchievementGraph = {
+  modId: string;
+  nodes: AchievementNode[];
 };

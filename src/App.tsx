@@ -2,13 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { ModDetail } from './components/ModDetail';
 import { ModList } from './components/ModList';
 import { ConfigManager } from './components/ConfigManager';
-import { Contribution, ModMeta } from './types';
+import { AchievementNodeEditor } from './components/AchievementNodeEditor';
+import { Contribution, ModMeta, AchievementNode } from './types';
+
+type EditorMode = 'classification' | 'achievement-nodes';
 
 function App() {
   const [mods, setMods] = useState<ModMeta[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [selectedModId, setSelectedModId] = useState<string>();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>();
+  const [editorMode, setEditorMode] = useState<EditorMode>('classification');
   const [status, setStatus] = useState('');
 
   useEffect(() => {
@@ -172,6 +176,24 @@ function App() {
     }
   };
 
+  const handleUpdateAchievementNodes = (nodes: AchievementNode[]) => {
+    if (!selectedMod) return;
+    setMods((prevMods) => {
+      return prevMods.map((mod) => {
+        if (mod.id !== selectedMod.id) return mod;
+        return {
+          ...mod,
+          achievementGraph: {
+            modId: mod.id,
+            nodes
+          }
+        };
+      });
+    });
+    setStatus('成就节点已更新');
+    setTimeout(() => setStatus(''), 1500);
+  };
+
   const filteredContrib = useMemo(() => {
     if (!selectedModId) return contributions;
     return contributions.filter((c) => c.modId === selectedModId).slice(0, 10);
@@ -202,15 +224,27 @@ function App() {
             setSelectedCategoryId(mod.categories[0].id);
           }
         }} />
-        <ModDetail
-          mod={selectedMod}
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryId}
-          onReassignItem={handleReassignItem}
-          onAddCategory={handleAddCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onReorderItems={handleReorderItems}
-        />
+        
+        {editorMode === 'classification' && (
+          <ModDetail
+            mod={selectedMod}
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={setSelectedCategoryId}
+            onReassignItem={handleReassignItem}
+            onAddCategory={handleAddCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onReorderItems={handleReorderItems}
+            onSwitchMode={() => setEditorMode('achievement-nodes')}
+          />
+        )}
+        
+        {editorMode === 'achievement-nodes' && selectedMod && (
+          <AchievementNodeEditor
+            mod={selectedMod}
+            onUpdateNodes={handleUpdateAchievementNodes}
+            onSwitchMode={() => setEditorMode('classification')}
+          />
+        )}
       </div>
 
       {filteredContrib.length > 0 && (

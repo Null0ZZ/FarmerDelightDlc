@@ -9,6 +9,7 @@ type Props = {
   onAddCategory: (name: string) => void;
   onDeleteCategory: (categoryId: string) => void;
   onReorderItems: (categoryId: string, itemIds: string[]) => void;
+  onSwitchMode?: () => void;
 };
 
 export const ModDetail = ({
@@ -18,7 +19,8 @@ export const ModDetail = ({
   onReassignItem,
   onAddCategory,
   onDeleteCategory,
-  onReorderItems
+  onReorderItems,
+  onSwitchMode
 }: Props) => {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -112,6 +114,43 @@ export const ModDetail = ({
             </span>
           ))}
         </div>
+        {onSwitchMode && (
+          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+            <button
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'rgba(124, 242, 156, 0.1)',
+                border: '1px solid var(--accent-strong)',
+                color: 'var(--accent-strong)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              📂 分类
+            </button>
+            <button
+              onClick={onSwitchMode}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'rgba(109, 211, 255, 0.1)',
+                border: '1px solid var(--accent)',
+                color: 'var(--accent)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              ⭐ 编辑节点
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0 }}>
