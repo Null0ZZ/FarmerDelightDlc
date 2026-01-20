@@ -190,18 +190,16 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
           y: (toPos.y - scrollOffset.y) * scale
         };
 
-        // 节点在HTML中应用了 transform: scale()，但中心点计算需要考虑缩放
-        // 节点宽度60px，未缩放时中心在30px，但由于transform-origin是左上角，缩放后中心点位置变化
-        // 正确的中心点 = 节点位置 + (30 * scale) 不对，应该是位置本身就已经考虑了缩放
-        // 实际上应该是：HTML元素左上角在 pos.x*scale, pos.y*scale
-        // 节点宽60px，缩放后是 60*scale，中心在 30*scale 处
+        // 节点宽度60px，中心在30px处
+        // HTML位置：left: pos.x*scale, top: pos.y*scale, 加上 transform: scale(scale)
+        // Canvas中心点 = 节点左上角位置 + 节点中心偏移 = pos.x*scale + 30
         const fromCenter = {
-          x: fromPosAdjusted.x + 30 * scale,
-          y: fromPosAdjusted.y + 30 * scale
+          x: fromPosAdjusted.x + 30,
+          y: fromPosAdjusted.y + 30
         };
         const toCenter = {
-          x: toPosAdjusted.x + 30 * scale,
-          y: toPosAdjusted.y + 30 * scale
+          x: toPosAdjusted.x + 30,
+          y: toPosAdjusted.y + 30
         };
 
         // 获取泛光颜色（来自父节点）
