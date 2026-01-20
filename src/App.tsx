@@ -5,33 +5,68 @@ import { ConfigManager } from './components/ConfigManager';
 import { AchievementNodeEditor } from './components/AchievementNodeEditor';
 import { Contribution, ModMeta, AchievementNode } from './types';
 import BmobAuth from './components/BmobAuth';
+import { useBmobAuth } from './hooks/useBmobAuth';
+import { loadModsForUser, saveMods, updateMods, loadContributionsForUser, saveContributions, updateContributions } from './lib/bmob';
 
 type EditorMode = 'classification' | 'achievement-nodes';
 
 function App() {
+  const { user } = useBmobAuth();
   const [mods, setMods] = useState<ModMeta[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [selectedModId, setSelectedModId] = useState<string>();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>();
   const [editorMode, setEditorMode] = useState<EditorMode>('classification');
   const [status, setStatus] = useState('');
+  const [modsObjectId, setModsObjectId] = useState<string>();
+  const [contributionsObjectId, setContributionsObjectId] = useState<string>();
 
   useEffect(() => {
     const load = async () => {
       try {
-        // 从 test 文件夹加载默认配置
-        const response = await fetch('/test/default-config.json');
-        if (!response.ok) throw new Error('无法加载默认配置');
-        
-        const configText = await response.text();
-        const config = JSON.parse(configText);
-        
-        if (config.mods && Array.isArray(config.mods)) {
-          setMods(config.mods);
-          if (config.mods.length > 0) {
-            setSelectedModId(config.mods[0]?.id);
-            setSelectedCategoryId(config.mods[0]?.categories[0]?.id);
+        if (user) {
+          // 用户已登录，从云端加载数据
+          setStatus('从云端加载数据…');
+          const [modsData, contributionsData] = await Promise.all([
+            loadModsForUser(user.objectId, user.sessionToken),
+            loadContributionsForUser(user.objectId, user.sessionToken)
+          ]);
+
+          if (modsData.length > 0) {
+            const modsRecord = modsData[0];
+            const loadedMods = JSON.parse(modsRecord.data);
+            setMods(loadedMods);
+            setModsObjectId(modsRecord.objectId);
+            if (loadedMods.length > 0) {
+              setSelectedModId(loadedMods[0]?.id);
+              setSelectedCategoryId(loadedMods[0]?.categories[0]?.id);
+            }
           }
+
+          if (contributionsData.length > 0) {
+            const contributionsRecord = contributionsData[0];
+            const loadedContributions = JSON.parse(contributionsRecord.data);
+            setContributions(loadedContributions);
+            setContributionsObjectId(contributionsRecord.objectId);
+          }
+
+          setStatus('云端数据已加载');
+        } else {
+          // 未登录用户，从本地加载默认配置
+          const response = await fetch('/test/default-config.json');
+          if (!response.ok) throw new Error('无法加载默认配置');
+          
+          const configText = await response.text();
+          const config = JSON.parse(configText);
+          
+          if (config.mods && Array.isArray(config.mods)) {
+            setMods(config.mods);
+            if (config.mods.length > 0) {
+              setSelectedModId(config.mods[0]?.id);
+              setSelectedCategoryId(config.mods[0]?.categories[0]?.id);
+            }
+          }
+          setStatus('');
         }
       } catch (err) {
         console.error('加载配置失败:', err);
@@ -40,7 +75,37 @@ function App() {
     };
 
     load();
-  }, []);
+  }, [user]);
+
+  // 保存模组数据到云端
+  const saveModsToCloud = async (updatedMods: ModMeta[]) => {
+    if (!user) return;
+    try {
+      if (modsObjectId) {
+        await updateMods(modsObjectId, updatedMods, user.sessionToken);
+      } else {
+        const result = await saveMods(user.objectId, updatedMods, user.sessionToken);
+        setModsObjectId(result.objectId);
+      }
+    } catch (err) {
+      console.error('保存模组数据失败:', err);
+    }
+  };
+
+  // 保存协作记录到云端
+  const saveContributionsToCloud = async (updatedContributions: Contribution[]) => {
+    if (!user) return;
+    try {
+      if (contributionsObjectId) {
+        await updateContributions(contributionsObjectId, updatedContributions, user.sessionToken);
+      } else {
+        const result = await saveContributions(user.objectId, updatedContributions, user.sessionToken);
+        setContributionsObjectId(result.objectId);
+      }
+    } catch (err) {
+      console.error('保存协作记录失败:', err);
+    }
+  };
 
   const selectedMod = useMemo(() => mods.find((m) => m.id === selectedModId), [mods, selectedModId]);
 
@@ -48,9 +113,12 @@ function App() {
     if (!selectedMod) return;
     setStatus('分类中…');
     try {
+      let updatedMods: ModMeta[] = [];
+      let updatedContributions: Contribution[] = [];
+
       // 直接在本地更新数据，不依赖 modService 的内部存储
       setMods((prevMods) => {
-        return prevMods.map((mod) => {
+        updatedMods = prevMods.map((mod) => {
           if (mod.id !== selectedMod.id) return mod;
           
           return {
@@ -63,6 +131,7 @@ function App() {
             })
           };
         });
+        return updatedMods;
       });
 
       // 记录贡献
@@ -75,7 +144,16 @@ function App() {
         createdAt: new Date().toISOString(),
         status: 'pending' as const
       };
-      setContributions((prev) => [newContribution, ...prev]);
+      setContributions((prev) => {
+        updatedContributions = [newContribution, ...prev];
+        return updatedContributions;
+      });
+
+      // 保存到云端
+      await Promise.all([
+        saveModsToCloud(updatedMods),
+        saveContributionsToCloud(updatedContributions)
+      ]);
       
       setStatus('分类已更新');
       setTimeout(() => setStatus(''), 2000);
@@ -97,15 +175,20 @@ function App() {
         return;
       }
       
+      let updatedMods: ModMeta[] = [];
       setMods((prevMods) => {
-        return prevMods.map((mod) => {
+        updatedMods = prevMods.map((mod) => {
           if (mod.id !== selectedMod.id) return mod;
           return {
             ...mod,
             categories: [...mod.categories, { id: categoryId, name, description: '' }]
           };
         });
+        return updatedMods;
       });
+
+      // 保存到云端
+      saveModsToCloud(updatedMods);
       
       setStatus('分类已添加');
       setTimeout(() => setStatus(''), 2000);
@@ -119,8 +202,9 @@ function App() {
     if (!selectedMod) return;
     setStatus('删除分类中…');
     try {
+      let updatedMods: ModMeta[] = [];
       setMods((prevMods) => {
-        return prevMods.map((mod) => {
+        updatedMods = prevMods.map((mod) => {
           if (mod.id !== selectedMod.id) return mod;
           
           return {
@@ -134,7 +218,11 @@ function App() {
             )
           };
         });
+        return updatedMods;
       });
+
+      // 保存到云端
+      saveModsToCloud(updatedMods);
       
       // 清除该分类的选中状态
       if (selectedCategoryId === categoryId) {
@@ -153,8 +241,9 @@ function App() {
     if (!selectedMod) return;
     setStatus('排序中…');
     try {
+      let updatedMods: ModMeta[] = [];
       setMods((prevMods) => {
-        return prevMods.map((mod) => {
+        updatedMods = prevMods.map((mod) => {
           if (mod.id !== selectedMod.id) return mod;
           
           // 创建新的 items 数组，保持原有顺序但调整分类内的顺序
@@ -167,7 +256,11 @@ function App() {
             items: [...reorderedItems, ...otherItems]
           };
         });
+        return updatedMods;
       });
+
+      // 保存到云端
+      saveModsToCloud(updatedMods);
       
       setStatus('排序已更新');
       setTimeout(() => setStatus(''), 1500);
@@ -179,8 +272,9 @@ function App() {
 
   const handleUpdateAchievementNodes = (nodes: AchievementNode[]) => {
     if (!selectedMod) return;
+    let updatedMods: ModMeta[] = [];
     setMods((prevMods) => {
-      return prevMods.map((mod) => {
+      updatedMods = prevMods.map((mod) => {
         if (mod.id !== selectedMod.id) return mod;
         return {
           ...mod,
@@ -190,7 +284,12 @@ function App() {
           }
         };
       });
+      return updatedMods;
     });
+
+    // 保存到云端
+    saveModsToCloud(updatedMods);
+
     setStatus('成就节点已更新');
     setTimeout(() => setStatus(''), 1500);
   };

@@ -83,7 +83,7 @@ export async function loadNodesForUser(ownerId: string, sessionToken?: string) {
   return j.results || [];
 }
 
-export async function uploadFile(file: File, sessionToken?: string) {
+export async function uploadFile(file: File, _sessionToken?: string) {
   const form = new FormData();
   form.append('file', file);
   // Bmob 文件上传 可能需要不同的 endpoint/version，此处尝试常见路径
@@ -97,6 +97,62 @@ export async function uploadFile(file: File, sessionToken?: string) {
     body: form
   });
   return res.json();
+}
+
+// 模组数据同步函数
+export async function saveMods(ownerId: string, modsJson: any, sessionToken?: string) {
+  const res = await fetch(`${BASE}/classes/Mods`, {
+    method: 'POST',
+    headers: headers(sessionToken),
+    body: JSON.stringify({ ownerId, data: JSON.stringify(modsJson) })
+  });
+  return res.json();
+}
+
+export async function updateMods(objectId: string, modsJson: any, sessionToken?: string) {
+  const res = await fetch(`${BASE}/classes/Mods/${objectId}`, {
+    method: 'PUT',
+    headers: headers(sessionToken),
+    body: JSON.stringify({ data: JSON.stringify(modsJson) })
+  });
+  return res.json();
+}
+
+export async function loadModsForUser(ownerId: string, sessionToken?: string) {
+  const where = encodeURIComponent(JSON.stringify({ ownerId }));
+  const res = await fetch(`${BASE}/classes/Mods?where=${where}`, {
+    headers: headers(sessionToken)
+  });
+  const j = await res.json();
+  return j.results || [];
+}
+
+// 协作记录同步函数
+export async function saveContributions(ownerId: string, contributionsJson: any, sessionToken?: string) {
+  const res = await fetch(`${BASE}/classes/Contributions`, {
+    method: 'POST',
+    headers: headers(sessionToken),
+    body: JSON.stringify({ ownerId, data: JSON.stringify(contributionsJson) })
+  });
+  return res.json();
+}
+
+export async function updateContributions(objectId: string, contributionsJson: any, sessionToken?: string) {
+  const res = await fetch(`${BASE}/classes/Contributions/${objectId}`, {
+    method: 'PUT',
+    headers: headers(sessionToken),
+    body: JSON.stringify({ data: JSON.stringify(contributionsJson) })
+  });
+  return res.json();
+}
+
+export async function loadContributionsForUser(ownerId: string, sessionToken?: string) {
+  const where = encodeURIComponent(JSON.stringify({ ownerId }));
+  const res = await fetch(`${BASE}/classes/Contributions?where=${where}`, {
+    headers: headers(sessionToken)
+  });
+  const j = await res.json();
+  return j.results || [];
 }
 
 export function isConfigured() {
