@@ -54,7 +54,7 @@ function App() {
           setStatus('云端数据已加载');
         } else {
           // 未登录用户，从本地加载默认配置
-          const response = await fetch('/test/default-config.json');
+          const response = await fetch('./test/default-config.json');
           if (!response.ok) throw new Error('无法加载默认配置');
           
           const configText = await response.text();
