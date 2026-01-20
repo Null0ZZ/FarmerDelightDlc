@@ -4,6 +4,7 @@ import { ModList } from './components/ModList';
 import { ConfigManager } from './components/ConfigManager';
 import { AchievementNodeEditor } from './components/AchievementNodeEditor';
 import { Contribution, ModMeta, AchievementNode } from './types';
+import BmobAuth from './components/BmobAuth';
 
 type EditorMode = 'classification' | 'achievement-nodes';
 
@@ -202,6 +203,9 @@ function App() {
   return (
     <div className="app-shell">
       <section className="hero glass">
+        <div style={{ position: 'absolute', right: 12, top: 12 }}>
+          <BmobAuth />
+        </div>
         <h1>模组共创中心</h1>
         <p>为模组物品分类做贡献，让分类体系更合理。选择分类后在右侧网格中点击物品可快速移动分类。</p>
         {status && <div className="state-pill" style={{ marginTop: 12 }}>{status}</div>}

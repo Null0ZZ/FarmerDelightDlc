@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ModMeta, AchievementNode } from '../types';
+import { loadNodesForUser, saveNodes, updateNodes, isConfigured } from '../lib/bmob';
 
 type Props = {
   mod: ModMeta;
@@ -22,6 +23,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [remoteObjectId, setRemoteObjectId] = useState<string | null>(null);
 
   // 获取节点可见位置
   const getNodePos = (node: AchievementNode) => {
@@ -47,6 +49,35 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
     };
     setNodes([...nodes, newNode]);
   };
+
+  // 在组件加载时尝试从 Bmob 加载用户的节点（如果已登录并配置）
+  useEffect(() => {
+    try {
+      if (!isConfigured()) return;
+      const sessionToken = localStorage.getItem('bmob_session');
+      const user = JSON.parse(localStorage.getItem('bmob_user') || 'null');
+      if (sessionToken && user && user.objectId) {
+        loadNodesForUser(user.objectId, sessionToken)
+          .then((rows) => {
+            if (rows && rows.length > 0) {
+              try {
+                const first = rows[0];
+                if (first.data) {
+                  const parsed = JSON.parse(first.data);
+                  setNodes(parsed);
+                  setRemoteObjectId(first.objectId || null);
+                }
+              } catch (e) {
+                console.error('解析远程节点数据失败', e);
+              }
+            }
+          })
+          .catch((err) => console.error('加载远程节点失败', err));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   // 创建子节点 - 使用旋转角度避免重叠
   const handleCreateChildNode = () => {
@@ -180,25 +211,16 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
 
         const toPos = getNodePos(parentNode);
         
-        // 减去滚动偏移，应用缩放（从中心点缩放）
-        const fromPosAdjusted = {
-          x: (fromPos.x - scrollOffset.x) * scale,
-          y: (fromPos.y - scrollOffset.y) * scale
-        };
-        const toPosAdjusted = {
-          x: (toPos.x - scrollOffset.x) * scale,
-          y: (toPos.y - scrollOffset.y) * scale
-        };
-
-        // 节点宽度60px，中心在30px处
-        // posAdjusted 已经应用了 scale，所以中心点偏移直接用 30
+        // 正确的逻辑：(原始位置 + 半宽偏移) * 缩放比例 - 滚动偏移
+        // 这样确保了 30px 的偏移也会随着缩放变成 15px (0.5x) 或 60px (2x)
         const fromCenter = {
-          x: fromPosAdjusted.x + 30,
-          y: fromPosAdjusted.y + 30
+          x: (fromPos.x + 30) * scale - scrollOffset.x,
+          y: (fromPos.y + 30) * scale - scrollOffset.y
         };
+        
         const toCenter = {
-          x: toPosAdjusted.x + 30,
-          y: toPosAdjusted.y + 30
+          x: (toPos.x + 30) * scale - scrollOffset.x,
+          y: (toPos.y + 30) * scale - scrollOffset.y
         };
 
         // 获取泛光颜色（来自父节点）
@@ -399,7 +421,8 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                       zIndex: isSelected ? 10 : isDragging ? 9 : isHovered ? 6 : 5,
                       cursor: isDragging ? 'grabbing' : 'grab',
                       userSelect: 'none',
-                      transform: `scale(${scale})`
+                      transform: `scale(${scale})`,
+                      transformOrigin: 'top left'
                     }}
                     onMouseDown={(e) => {
                       if (e.button === 0) { // 左键
@@ -762,8 +785,36 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
 
           {/* 更新按钮 */}
           <button
-            onClick={() => {
+            onClick={async () => {
               onUpdateNodes(nodes);
+              try {
+                if (!isConfigured()) {
+                  console.warn('Bmob 未配置，跳过云端保存');
+                  return;
+                }
+                const sessionToken = localStorage.getItem('bmob_session');
+                const user = JSON.parse(localStorage.getItem('bmob_user') || 'null');
+                if (!sessionToken || !user || !user.objectId) {
+                  console.warn('未登录，跳过云端保存');
+                  return;
+                }
+
+                if (remoteObjectId) {
+                  await updateNodes(remoteObjectId, nodes, sessionToken);
+                  // 提示
+                  // eslint-disable-next-line no-alert
+                  alert('已保存到云端（更新）');
+                } else {
+                  const res = await saveNodes(user.objectId, nodes, sessionToken);
+                  if (res && res.objectId) setRemoteObjectId(res.objectId);
+                  // eslint-disable-next-line no-alert
+                  alert('已保存到云端');
+                }
+              } catch (e) {
+                console.error('云端保存失败', e);
+                // eslint-disable-next-line no-alert
+                alert('云端保存失败');
+              }
             }}
             style={{
               padding: '10px 12px',
