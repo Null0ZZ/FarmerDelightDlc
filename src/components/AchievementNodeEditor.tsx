@@ -191,15 +191,14 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
         };
 
         // 节点宽度60px，中心在30px处
-        // HTML位置：left: pos.x*scale, top: pos.y*scale, transform: scale(scale)
-        // 节点实际视觉尺寸：60*scale，中心点应用缩放后 = posAdjusted + 30*scale
+        // posAdjusted 已经应用了 scale，所以中心点偏移直接用 30
         const fromCenter = {
-          x: fromPosAdjusted.x + 30 * scale,
-          y: fromPosAdjusted.y + 30 * scale
+          x: fromPosAdjusted.x + 30,
+          y: fromPosAdjusted.y + 30
         };
         const toCenter = {
-          x: toPosAdjusted.x + 30 * scale,
-          y: toPosAdjusted.y + 30 * scale
+          x: toPosAdjusted.x + 30,
+          y: toPosAdjusted.y + 30
         };
 
         // 获取泛光颜色（来自父节点）
