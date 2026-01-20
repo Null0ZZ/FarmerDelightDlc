@@ -180,14 +180,14 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
 
         const toPos = getNodePos(parentNode);
         
-        // 减去滚动偏移，使连线跟随滚动，应用缩放
+        // 减去滚动偏移，应用缩放（从中心点缩放）
         const fromPosAdjusted = {
-          x: (fromPos.x - scrollOffset.x) * scale + canvas.width / 2 * (1 - scale),
-          y: (fromPos.y - scrollOffset.y) * scale + canvas.height / 2 * (1 - scale)
+          x: (fromPos.x - scrollOffset.x) * scale,
+          y: (fromPos.y - scrollOffset.y) * scale
         };
         const toPosAdjusted = {
-          x: (toPos.x - scrollOffset.x) * scale + canvas.width / 2 * (1 - scale),
-          y: (toPos.y - scrollOffset.y) * scale + canvas.height / 2 * (1 - scale)
+          x: (toPos.x - scrollOffset.x) * scale,
+          y: (toPos.y - scrollOffset.y) * scale
         };
 
         // 从子节点中心到父节点中心的连线（而不是 +30 偏移）
@@ -231,7 +231,7 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
         ctx.lineTo(toCenter.x, toCenter.y);
         ctx.stroke();
 
-        // 绘制箭头 - 从子节点指向父节点（已修正方向）
+        // 绘制箭头 - 从子节点指向父节点
         const angle = Math.atan2(toCenter.y - fromCenter.y, toCenter.x - fromCenter.x);
         const arrowSize = 10 * scale;
         const arrowPos = {
@@ -243,12 +243,12 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
         ctx.beginPath();
         ctx.moveTo(arrowPos.x, arrowPos.y);
         ctx.lineTo(
-          arrowPos.x - Math.cos(angle - Math.PI / 6) * arrowSize,
-          arrowPos.y - Math.sin(angle - Math.PI / 6) * arrowSize
+          arrowPos.x + Math.cos(angle - Math.PI / 6) * arrowSize,
+          arrowPos.y + Math.sin(angle - Math.PI / 6) * arrowSize
         );
         ctx.lineTo(
-          arrowPos.x - Math.cos(angle + Math.PI / 6) * arrowSize,
-          arrowPos.y - Math.sin(angle + Math.PI / 6) * arrowSize
+          arrowPos.x + Math.cos(angle + Math.PI / 6) * arrowSize,
+          arrowPos.y + Math.sin(angle + Math.PI / 6) * arrowSize
         );
         ctx.closePath();
         ctx.fill();
@@ -423,11 +423,26 @@ export const AchievementNodeEditor = ({ mod, onUpdateNodes, onSwitchMode }: Prop
                         height: 60,
                         borderRadius: 12,
                         border: isSelected ? '2px solid var(--accent-strong)' : '1px solid var(--border)',
-                        background: isSelected
-                          ? 'rgba(124, 242, 156, 0.15)'
-                          : item
-                          ? 'rgba(109, 211, 255, 0.1)'
-                          : 'rgba(255, 255, 255, 0.05)',
+                        background: (() => {
+                          // 获取节点的泛光颜色（如果没有，则从父节点继承）
+                          let nodeColor = node.glowColor;
+                          if (!nodeColor && node.parentNodeIds.length > 0) {
+                            const parentNode = nodes.find((n) => n.id === node.parentNodeIds[0]);
+                            if (parentNode) nodeColor = parentNode.glowColor;
+                          }
+                          
+                          if (isSelected && nodeColor) {
+                            return nodeColor + '26'; // 添加透明度 hex 代码
+                          } else if (isSelected) {
+                            return 'rgba(124, 242, 156, 0.15)';
+                          } else if (nodeColor) {
+                            return nodeColor + '0D'; // 更浅的透明度
+                          } else if (item) {
+                            return 'rgba(109, 211, 255, 0.1)';
+                          } else {
+                            return 'rgba(255, 255, 255, 0.05)';
+                          }
+                        })(),
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
