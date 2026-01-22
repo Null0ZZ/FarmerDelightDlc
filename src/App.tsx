@@ -21,6 +21,7 @@ function App() {
   const [status, setStatus] = useState('');
   const [modsObjectId, setModsObjectId] = useState<string>();
   const [contributionsObjectId, setContributionsObjectId] = useState<string>();
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -115,6 +116,27 @@ function App() {
       }
     } catch (err) {
       console.error('保存协作记录失败:', err);
+    }
+  };
+
+  // 手动保存所有配置到云端
+  const handleSaveAllToCloud = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    setStatus('正在保存到云端...');
+    try {
+      await Promise.all([
+        saveModsToCloud(mods),
+        saveContributionsToCloud(contributions)
+      ]);
+      setStatus('✅ 配置已保存到云端');
+      setTimeout(() => setStatus(''), 3000);
+    } catch (err) {
+      console.error('保存失败:', err);
+      setStatus('❌ 保存失败，请重试');
+      setTimeout(() => setStatus(''), 3000);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -248,6 +270,38 @@ function App() {
     }
   };
 
+  const handleRenameCategory = (categoryId: string, newName: string) => {
+    if (!selectedMod || !newName.trim()) return;
+    setStatus('重命名中…');
+    try {
+      let updatedMods: ModMeta[] = [];
+      setMods((prevMods) => {
+        updatedMods = prevMods.map((mod) => {
+          if (mod.id !== selectedMod.id) return mod;
+          
+          return {
+            ...mod,
+            categories: mod.categories.map(c => 
+              c.id === categoryId 
+                ? { ...c, name: newName.trim() }
+                : c
+            )
+          };
+        });
+        return updatedMods;
+      });
+
+      // 保存到云端
+      saveModsToCloud(updatedMods);
+      
+      setStatus('分类已重命名');
+      setTimeout(() => setStatus(''), 2000);
+    } catch (err) {
+      console.error(err);
+      setStatus('重命名失败');
+    }
+  };
+
   const handleReorderItems = (_categoryId: string, itemIds: string[]) => {
     if (!selectedMod) return;
     setStatus('排序中…');
@@ -319,7 +373,7 @@ function App() {
         <h1>模组共创中心</h1>
         <p>为模组物品分类做贡献，让分类体系更合理。选择分类后在右侧网格中点击物品可快速移动分类。</p>
         {status && <div className="state-pill" style={{ marginTop: 12 }}>{status}</div>}
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <ConfigManager mods={mods} onImport={(newMods) => {
             setMods(newMods);
             if (newMods.length > 0) {
@@ -327,6 +381,28 @@ function App() {
               setSelectedCategoryId(newMods[0]?.categories[0]?.id);
             }
           }} />
+          {user && (
+            <button
+              onClick={handleSaveAllToCloud}
+              disabled={isSaving}
+              style={{
+                padding: '10px 20px',
+                background: isSaving ? 'rgba(124, 242, 156, 0.3)' : 'var(--accent-strong)',
+                border: 'none',
+                color: '#000',
+                borderRadius: 8,
+                cursor: isSaving ? 'not-allowed' : 'pointer',
+                fontSize: 14,
+                fontWeight: 600,
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              {isSaving ? '⏳ 保存中...' : '☁️ 保存配置到云端'}
+            </button>
+          )}
         </div>
       </section>
 
@@ -347,6 +423,7 @@ function App() {
             onReassignItem={handleReassignItem}
             onAddCategory={handleAddCategory}
             onDeleteCategory={handleDeleteCategory}
+            onRenameCategory={handleRenameCategory}
             onReorderItems={handleReorderItems}
             onSwitchMode={() => setEditorMode('achievement-nodes')}
           />

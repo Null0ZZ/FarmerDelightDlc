@@ -8,6 +8,7 @@ type Props = {
   onReassignItem: (itemId: string, newCategoryId: string) => void;
   onAddCategory: (name: string) => void;
   onDeleteCategory: (categoryId: string) => void;
+  onRenameCategory: (categoryId: string, newName: string) => void;
   onReorderItems: (categoryId: string, itemIds: string[]) => void;
   onSwitchMode?: () => void;
 };
@@ -19,6 +20,7 @@ export const ModDetail = ({
   onReassignItem,
   onAddCategory,
   onDeleteCategory,
+  onRenameCategory,
   onReorderItems,
   onSwitchMode
 }: Props) => {
@@ -27,6 +29,9 @@ export const ModDetail = ({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
 
   if (!mod) {
     return (
@@ -39,6 +44,14 @@ export const ModDetail = ({
   const selectedCategory = mod.categories.find((c) => c.id === selectedCategoryId);
   const itemsInCategory = selectedCategoryId
     ? mod.items.filter((i) => i.currentCategoryId === selectedCategoryId && i.currentCategoryId !== '')
+    : [];
+  
+  // 搜索过滤所有物品
+  const searchResults = searchQuery.trim()
+    ? mod.items.filter((item) => 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.id.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : [];
   
   const selectedItem = selectedItemId 
@@ -68,6 +81,19 @@ export const ModDetail = ({
     if (confirm('确定要删除此分类吗？该分类下的物品会变为未分类状态。')) {
       onDeleteCategory(categoryId);
     }
+  };
+
+  const handleRenameCategory = (categoryId: string) => {
+    if (editingCategoryName.trim() && editingCategoryName.trim() !== mod.categories.find(c => c.id === categoryId)?.name) {
+      onRenameCategory(categoryId, editingCategoryName.trim());
+    }
+    setEditingCategoryId(null);
+    setEditingCategoryName('');
+  };
+
+  const startEditingCategory = (categoryId: string, currentName: string) => {
+    setEditingCategoryId(categoryId);
+    setEditingCategoryName(currentName);
   };
 
   const handleDragStart = (itemId: string) => {
@@ -237,8 +263,70 @@ export const ModDetail = ({
             <div className="categories-grid">
               {mod.categories.map((cat) => {
                 const count = mod.items.filter((i) => i.currentCategoryId === cat.id).length;
+                const isEditing = editingCategoryId === cat.id;
                 return (
                   <div key={cat.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                    {isEditing ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <input
+                          type="text"
+                          value={editingCategoryName}
+                          onChange={(e) => setEditingCategoryName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameCategory(cat.id);
+                            if (e.key === 'Escape') {
+                              setEditingCategoryId(null);
+                              setEditingCategoryName('');
+                            }
+                          }}
+                          autoFocus
+                          style={{
+                            padding: '6px 8px',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid var(--accent)',
+                            borderRadius: 6,
+                            color: 'var(--text)',
+                            fontSize: 12,
+                            outline: 'none'
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button
+                            onClick={() => handleRenameCategory(cat.id)}
+                            style={{
+                              flex: 1,
+                              padding: '4px',
+                              background: 'var(--accent-strong)',
+                              border: 'none',
+                              color: '#000',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              fontSize: 10
+                            }}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingCategoryId(null);
+                              setEditingCategoryName('');
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '4px',
+                              background: 'rgba(255, 255, 255, 0.1)',
+                              border: '1px solid var(--border)',
+                              color: 'var(--text)',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              fontSize: 10
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
                     <button
                       style={{
                         padding: '8px 10px',
@@ -258,6 +346,7 @@ export const ModDetail = ({
                         overflow: 'hidden'
                       }}
                       onClick={() => onSelectCategory(cat.id)}
+                      onDoubleClick={() => startEditingCategory(cat.id, cat.name)}
                       onMouseEnter={(e) => {
                         if (cat.id !== selectedCategoryId) {
                           e.currentTarget.style.borderColor = 'var(--accent)';
@@ -270,7 +359,7 @@ export const ModDetail = ({
                           e.currentTarget.style.background = 'transparent';
                         }
                       }}
-                      title={cat.name}
+                      title={`${cat.name} (双击编辑名称)`}
                     >
                       <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{cat.name}</span>
                       <span style={{ 
@@ -284,6 +373,8 @@ export const ModDetail = ({
                         {count}
                       </span>
                   </button>
+                  )}
+                  {!isEditing && (
                   <button
                     onClick={() => handleDeleteCategory(cat.id)}
                     style={{
@@ -310,6 +401,7 @@ export const ModDetail = ({
                   >
                     ✕
                   </button>
+                  )}
                 </div>
                 );
               })}
@@ -319,6 +411,101 @@ export const ModDetail = ({
 
         {/* 底部：物品网格 */}
         <div className="panel glass" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', flex: 1 }}>
+          {/* 搜索框 */}
+          <div style={{ marginBottom: 8 }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="🔍 搜索物品..."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                color: 'var(--text)',
+                fontSize: 13,
+                outline: 'none',
+                transition: 'all 0.15s ease'
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+              }}
+            />
+          </div>
+
+          {/* 搜索结果 */}
+          {searchQuery.trim() && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="section-title" style={{ fontSize: 12, marginBottom: 6, color: 'var(--text-muted)' }}>
+                搜索结果 ({searchResults.length})
+              </div>
+              {searchResults.length > 0 ? (
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', 
+                  gap: 6,
+                  maxHeight: 120,
+                  overflowY: 'auto',
+                  padding: 4
+                }}>
+                  {searchResults.slice(0, 20).map((item, index) => (
+                    <div
+                      key={`search-${item.id}-${index}`}
+                      onClick={() => handleItemClick(item.id)}
+                      style={{
+                        aspectRatio: '1',
+                        background: 'rgba(109, 211, 255, 0.1)',
+                        border: '1px solid var(--accent)',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.1)';
+                        e.currentTarget.style.background = 'rgba(109, 211, 255, 0.2)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.background = 'rgba(109, 211, 255, 0.1)';
+                      }}
+                      title={item.name}
+                    >
+                      {item.texture ? (
+                        <img
+                          src={item.texture}
+                          alt={item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 2 }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: 16 }}>📦</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', padding: 8 }}>
+                  未找到匹配的物品
+                </div>
+              )}
+              {searchResults.length > 20 && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', marginTop: 4 }}>
+                  还有 {searchResults.length - 20} 个结果...
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="section-title" style={{ fontSize: 13, marginBottom: 8 }}>
             {selectedCategory ? `${selectedCategory.name} (${itemsInCategory.length})` : '选择分类'}
           </div>
