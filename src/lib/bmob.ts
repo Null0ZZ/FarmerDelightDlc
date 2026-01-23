@@ -158,3 +158,21 @@ export async function loadContributionsForUser(ownerId: string, sessionToken?: s
 export function isConfigured() {
   return Boolean(APP_ID && REST_KEY);
 }
+
+// 验证用户是否为管理员（从云端 AdminUsers 表查询）
+export async function checkIsAdmin(userId: string, sessionToken?: string): Promise<boolean> {
+  try {
+    // 查询 AdminUsers 表，检查是否存在该用户ID
+    const where = encodeURIComponent(JSON.stringify({ userId, isActive: true }));
+    const res = await fetch(`${BASE}/classes/AdminUsers?where=${where}`, {
+      headers: headers(sessionToken)
+    });
+    const data = await res.json();
+    console.log('[Bmob] checkIsAdmin response:', data);
+    // 如果找到记录且 isActive 为 true，则是管理员
+    return Array.isArray(data.results) && data.results.length > 0;
+  } catch (e) {
+    console.error('[Bmob] checkIsAdmin error:', e);
+    return false;
+  }
+}

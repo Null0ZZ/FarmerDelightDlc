@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ModMeta } from '../types';
 
 type Props = {
   mod?: ModMeta;
   selectedCategoryId?: string;
+  isAdmin?: boolean;
   onSelectCategory: (categoryId: string) => void;
   onReassignItem: (itemId: string, newCategoryId: string) => void;
   onAddCategory: (name: string) => void;
@@ -16,6 +17,7 @@ type Props = {
 export const ModDetail = ({
   mod,
   selectedCategoryId,
+  isAdmin = false,
   onSelectCategory,
   onReassignItem,
   onAddCategory,
@@ -32,6 +34,53 @@ export const ModDetail = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
+  
+  // 长按下载相关状态
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string; texture: string; name: string } | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressItem = useRef<{ id: string; texture: string; name: string } | null>(null);
+
+  // 处理长按开始
+  const handleLongPressStart = (itemId: string, texture: string, name: string, e: React.MouseEvent | React.TouchEvent) => {
+    if (!isAdmin) return;
+    longPressItem.current = { id: itemId, texture, name };
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    longPressTimer.current = setTimeout(() => {
+      setContextMenu({ x: clientX, y: clientY, itemId, texture, name });
+    }, 500); // 500ms 长按触发
+  };
+
+  // 处理长按结束
+  const handleLongPressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  // 下载图片
+  const handleDownloadTexture = async () => {
+    if (!contextMenu || !isAdmin) return;
+    try {
+      const response = await fetch(contextMenu.texture);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${contextMenu.name}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('下载失败:', err);
+      alert('下载失败，请重试');
+    }
+    setContextMenu(null);
+  };
 
   if (!mod) {
     return (
@@ -484,7 +533,17 @@ export const ModDetail = ({
                         <img
                           src={item.texture}
                           alt={item.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 2 }}
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'contain', 
+                            padding: 2,
+                            WebkitTouchCallout: 'none',
+                            WebkitUserSelect: 'none',
+                            userSelect: 'none',
+                            pointerEvents: 'none'
+                          }}
+                          draggable={false}
                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
                       ) : (
@@ -521,6 +580,16 @@ export const ModDetail = ({
                   onDragOver={(e) => handleDragOver(e, item.id)}
                   onDrop={(e) => handleDrop(e, item.id)}
                   onDragEnd={handleDragEnd}
+                  onMouseDown={(e) => handleLongPressStart(item.id, item.texture || '', item.name, e)}
+                  onMouseUp={handleLongPressEnd}
+                  onTouchStart={(e) => handleLongPressStart(item.id, item.texture || '', item.name, e)}
+                  onTouchEnd={handleLongPressEnd}
+                  onContextMenu={(e) => {
+                    if (isAdmin && item.texture) {
+                      e.preventDefault();
+                      setContextMenu({ x: e.clientX, y: e.clientY, itemId: item.id, texture: item.texture, name: item.name });
+                    }
+                  }}
                   style={{
                     aspectRatio: '1',
                     background: dragOverItemId === item.id ? 'rgba(124, 242, 156, 0.15)' : 'rgba(255, 255, 255, 0.05)',
@@ -544,13 +613,14 @@ export const ModDetail = ({
                     }
                   }}
                   onMouseLeave={(e) => {
+                    handleLongPressEnd();
                     if (!draggedItemId) {
                       e.currentTarget.style.borderColor = 'var(--border)';
                       e.currentTarget.style.opacity = '0.8';
                       e.currentTarget.style.transform = 'scale(1)';
                     }
                   }}
-                  title={item.name}
+                  title={isAdmin ? `${item.name} (长按或右键下载)` : item.name}
                 >
                   {item.texture ? (
                     <img
@@ -561,8 +631,14 @@ export const ModDetail = ({
                         height: '100%',
                         objectFit: 'contain',
                         objectPosition: 'center',
-                        padding: 4
+                        padding: 4,
+                        // 阻止浏览器原生长按菜单
+                        WebkitTouchCallout: 'none',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none',
+                        pointerEvents: 'none'
                       }}
+                      draggable={false}
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
@@ -640,6 +716,84 @@ export const ModDetail = ({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 管理员右键/长按菜单 */}
+      {contextMenu && isAdmin && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999
+          }}
+          onClick={() => setContextMenu(null)}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: contextMenu.y,
+              left: contextMenu.x,
+              background: 'rgba(30, 30, 40, 0.98)',
+              border: '1px solid var(--accent)',
+              borderRadius: 8,
+              padding: 4,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+              minWidth: 150
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--text-muted)' }}>
+              {contextMenu.name}
+            </div>
+            <button
+              onClick={handleDownloadTexture}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text)',
+                fontSize: 13,
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                borderRadius: 4,
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(109, 211, 255, 0.15)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              ⬇️ 下载图标
+            </button>
+            <button
+              onClick={() => setContextMenu(null)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: 13,
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                borderRadius: 4,
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              ✕ 取消
+            </button>
           </div>
         </div>
       )}

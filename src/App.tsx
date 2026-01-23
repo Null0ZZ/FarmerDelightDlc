@@ -12,7 +12,7 @@ import BlockbenchIntegration from './components/BlockbenchIntegration';
 type EditorMode = 'classification' | 'achievement-nodes' | 'modeling';
 
 function App() {
-  const { user } = useBmobAuth();
+  const { user, isAdmin } = useBmobAuth();
   const [mods, setMods] = useState<ModMeta[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [selectedModId, setSelectedModId] = useState<string>();
@@ -419,6 +419,7 @@ function App() {
           <ModDetail
             mod={selectedMod}
             selectedCategoryId={selectedCategoryId}
+            isAdmin={isAdmin}
             onSelectCategory={setSelectedCategoryId}
             onReassignItem={handleReassignItem}
             onAddCategory={handleAddCategory}
