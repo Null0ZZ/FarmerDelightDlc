@@ -39,16 +39,19 @@ export const ModDetail = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string; texture: string; name: string } | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressItem = useRef<{ id: string; texture: string; name: string } | null>(null);
+  const didLongPress = useRef(false); // 标记是否刚刚长按过，用于阻止click事件
 
   // 处理长按开始
   const handleLongPressStart = (itemId: string, texture: string, name: string, e: React.MouseEvent | React.TouchEvent) => {
     if (!isAdmin) return;
     longPressItem.current = { id: itemId, texture, name };
+    didLongPress.current = false;
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
     longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true; // 标记长按成功
       setContextMenu({ x: clientX, y: clientY, itemId, texture, name });
     }, 500); // 500ms 长按触发
   };
@@ -59,6 +62,12 @@ export const ModDetail = ({
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+  };
+
+  // 处理触摸移动（取消长按）
+  const handleTouchMove = () => {
+    handleLongPressEnd();
+    didLongPress.current = false;
   };
 
   // 下载图片
@@ -108,6 +117,11 @@ export const ModDetail = ({
     : null;
 
   const handleItemClick = (itemId: string) => {
+    // 如果刚刚长按过（显示了下载菜单），不触发点击
+    if (didLongPress.current) {
+      didLongPress.current = false;
+      return;
+    }
     setSelectedItemId(itemId);
   };
 
@@ -583,6 +597,7 @@ export const ModDetail = ({
                   onMouseDown={(e) => handleLongPressStart(item.id, item.texture || '', item.name, e)}
                   onMouseUp={handleLongPressEnd}
                   onTouchStart={(e) => handleLongPressStart(item.id, item.texture || '', item.name, e)}
+                  onTouchMove={handleTouchMove}
                   onTouchEnd={handleLongPressEnd}
                   onContextMenu={(e) => {
                     if (isAdmin && item.texture) {
