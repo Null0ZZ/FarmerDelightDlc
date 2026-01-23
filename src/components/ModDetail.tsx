@@ -70,20 +70,46 @@ export const ModDetail = ({
     didLongPress.current = false;
   };
 
-  // 下载图片
+  // 下载图片（放大像素风格贴图）
   const handleDownloadTexture = async () => {
     if (!contextMenu || !isAdmin) return;
     try {
-      const response = await fetch(contextMenu.texture);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${contextMenu.name}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // 加载原始图片
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('图片加载失败'));
+        img.src = contextMenu.texture;
+      });
+
+      // 放大倍数（16x16 -> 512x512，即32倍）
+      const scale = 32;
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      
+      const ctx = canvas.getContext('2d')!;
+      // 关键：禁用平滑，使用邻近插值保持像素边缘
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // 导出为PNG
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('导出失败');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${contextMenu.name}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
     } catch (err) {
       console.error('下载失败:', err);
       alert('下载失败，请重试');
@@ -552,6 +578,7 @@ export const ModDetail = ({
                             height: '100%', 
                             objectFit: 'contain', 
                             padding: 2,
+                            imageRendering: 'pixelated',
                             WebkitTouchCallout: 'none',
                             WebkitUserSelect: 'none',
                             userSelect: 'none',
@@ -647,6 +674,7 @@ export const ModDetail = ({
                         objectFit: 'contain',
                         objectPosition: 'center',
                         padding: 4,
+                        imageRendering: 'pixelated',
                         // 阻止浏览器原生长按菜单
                         WebkitTouchCallout: 'none',
                         WebkitUserSelect: 'none',
